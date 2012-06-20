@@ -437,7 +437,9 @@ public class HornetQServerImpl implements HornetQServer
                activation = haPolicy.createActivation(this, wasLive, activationParams, shutdownOnCriticalIO);
             }
 
-            backupActivationThread = new Thread(activation, HornetQMessageBundle.BUNDLE.activationForServer(this));
+            System.out.println("bundle = " + HornetQMessageBundle.BUNDLE.activationForServer(this.getIdentity()));
+
+            backupActivationThread = new Thread(activation, "activation for " + this.toString());
             backupActivationThread.start();
          }
          else

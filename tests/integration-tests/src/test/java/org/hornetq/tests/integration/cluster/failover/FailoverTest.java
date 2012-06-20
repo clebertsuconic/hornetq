@@ -708,6 +708,8 @@ public class FailoverTest extends FailoverTestBase
     */
    private void simpleReplication(boolean doFailBack) throws Exception
    {
+      locator.setUseGlobalPools(false);
+      locator.setIdentity("testLocator::" + this.getName());
       locator.setFailoverOnInitialConnection(true);
       createSessionFactory();
       ClientSession session = createSessionAndQueue();

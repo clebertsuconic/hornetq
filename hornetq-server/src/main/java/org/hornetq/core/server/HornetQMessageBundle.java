@@ -58,7 +58,7 @@ public interface HornetQMessageBundle
    HornetQMessageBundle BUNDLE = Messages.getBundle(HornetQMessageBundle.class);
 
    @Message(id = 119000, value = "Activation for server {0}", format = Message.Format.MESSAGE_FORMAT)
-   String activationForServer(HornetQServer server);
+   String activationForServer(String server);
 
    @Message(id = 119001, value = "Generating thread dump because - {0}", format = Message.Format.MESSAGE_FORMAT)
    String generatingThreadDump(String reason);
