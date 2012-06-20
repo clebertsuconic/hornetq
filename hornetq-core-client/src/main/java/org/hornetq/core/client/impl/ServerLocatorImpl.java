@@ -87,7 +87,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
    private boolean clusterConnection;
 
-   private transient String identity;
+   private String identity;
 
    private final Set<ClientSessionFactoryInternal> factories = new HashSet<ClientSessionFactoryInternal>();
 
@@ -308,9 +308,20 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
       {
          this.shutdownPool = true;
 
-         ThreadFactory factory = new HornetQThreadFactory("HornetQ-client-factory-threads-" + System.identityHashCode(this),
-                                                          true,
-                                                          getThisClassLoader());
+         ThreadFactory factory;
+
+         if (identity != null)
+         {
+            factory = new HornetQThreadFactory("HornetQ-client-factory-threads-" + identity + "-" + System.identityHashCode(this),
+               true,
+               getThisClassLoader());
+         }
+         else
+         {
+            factory = new HornetQThreadFactory("HornetQ-client-factory-threads-" + identity + System.identityHashCode(this),
+               true,
+               getThisClassLoader());
+         }
 
          if (threadPoolMaxSize == -1)
          {

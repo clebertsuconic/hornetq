@@ -716,6 +716,15 @@ public interface ServerLocator extends AutoCloseable
    void close();
 
    /**
+    * Used to better identify Cluster Connection Locators on logs. To facilitate eventual debugging.
+    * This property is also useful if you disable global Thread pools since this will be part of the thread names
+    * used by the internal executor
+    **/
+   void setIdentity(String identity);
+
+   String getIdentity();
+
+   /**
     * Exposes the Topology used by this ServerLocator.
     *
     * @return topology
