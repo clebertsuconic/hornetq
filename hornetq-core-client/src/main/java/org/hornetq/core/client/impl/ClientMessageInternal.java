@@ -15,6 +15,7 @@ package org.hornetq.core.client.impl;
 
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.core.message.impl.MessageInternal;
+import org.hornetq.utils.TypedProperties;
 
 /**
  * A ClientMessageInternal
@@ -23,6 +24,9 @@ import org.hornetq.core.message.impl.MessageInternal;
  */
 public interface ClientMessageInternal extends ClientMessage, MessageInternal
 {
+
+   TypedProperties getProperties();
+
    /** Size used for FlowControl */
    int getFlowControlSize();
 

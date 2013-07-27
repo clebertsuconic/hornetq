@@ -54,15 +54,15 @@ public interface ClientSessionInternal extends ClientSession
 
    void removeProducer(ClientProducerInternal producer);
 
-   void handleReceiveMessage(long consumerID, SessionReceiveMessage message) throws Exception;
+   void handleReceiveMessage(long consumerID, ClientMessageInternal message) throws Exception;
 
-   void handleReceiveLargeMessage(long consumerID, SessionReceiveLargeMessage message) throws Exception;
+   void handleReceiveLargeMessage(long consumerID, ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception;
 
-   void handleReceiveContinuation(long consumerID, SessionReceiveContinuationMessage continuation) throws Exception;
+   void handleReceiveContinuation(long consumerID, byte[] chunk, int flowControlSize, boolean isContinues) throws Exception;
 
-   void preHandleFailover(CoreRemotingConnection connection);
+   void preHandleFailover(RemotingConnection connection);
 
-   void handleFailover(CoreRemotingConnection backupConnection);
+   void handleFailover(RemotingConnection backupConnection);
 
    RemotingConnection getConnection();
 
@@ -73,8 +73,6 @@ public interface ClientSessionInternal extends ClientSession
    void returnBlocking();
 
    void setForceNotSameRM(boolean force);
-
-   ClientSessionFactoryInternal getSessionFactory();
 
    void workDone();
 

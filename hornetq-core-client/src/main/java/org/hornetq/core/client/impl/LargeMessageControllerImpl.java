@@ -57,9 +57,9 @@ public class LargeMessageControllerImpl implements LargeMessageController
 
    private final ClientConsumerInternal consumerInternal;
 
-   private final LinkedBlockingQueue<SessionReceiveContinuationMessage> packets = new LinkedBlockingQueue<SessionReceiveContinuationMessage>();
+   private final LinkedBlockingQueue<LargeData> largeMessageData = new LinkedBlockingQueue<>();
 
-   private volatile SessionReceiveContinuationMessage currentPacket = null;
+   private volatile LargeData currentPacket = null;
 
    private final long totalSize;
 
@@ -153,10 +153,10 @@ public class LargeMessageControllerImpl implements LargeMessageController
    }
 
    /**
+    * TODO: move this to ConsumerContext as large message is a protocol specific thing
     * Add a buff to the List, or save it to the OutputStream if set
-    * @param packet
     */
-   public void addPacket(final SessionReceiveContinuationMessage packet)
+   public void addPacket(byte[] chunk, int flowControlSize, boolean isContinues)
    {
       int flowControlCredit = 0;
       boolean continues = false;
@@ -168,21 +168,19 @@ public class LargeMessageControllerImpl implements LargeMessageController
          {
             try
             {
-               if (!packet.isContinues())
+               if (!isContinues)
                {
                   streamEnded = true;
                }
 
                if (fileCache != null)
                {
-                  fileCache.cachePackage(packet.getBody());
+                  fileCache.cachePackage(chunk);
                }
 
-               outStream.write(packet.getBody());
+               outStream.write(chunk);
 
-               flowControlCredit = packet.getPacketSize();
-
-               continues = packet.isContinues();
+               flowControlCredit = flowControlSize;
 
                notifyAll();
 
@@ -203,7 +201,7 @@ public class LargeMessageControllerImpl implements LargeMessageController
             {
                try
                {
-                  fileCache.cachePackage(packet.getBody());
+                  fileCache.cachePackage(chunk);
                }
                catch (Exception e)
                {
@@ -213,7 +211,7 @@ public class LargeMessageControllerImpl implements LargeMessageController
             }
 
 
-            packets.offer(packet);
+            largeMessageData.offer(new LargeData(chunk, flowControlSize, isContinues));
          }
       }
 
@@ -238,10 +236,10 @@ public class LargeMessageControllerImpl implements LargeMessageController
       synchronized (this)
       {
          int totalSize = 0;
-         Packet polledPacket = null;
-         while ((polledPacket = packets.poll()) != null)
+         LargeData polledPacket = null;
+         while ((polledPacket = largeMessageData.poll()) != null)
          {
-            totalSize += polledPacket.getPacketSize();
+            totalSize += polledPacket.getFlowControlSize();
          }
 
          try
@@ -254,7 +252,7 @@ public class LargeMessageControllerImpl implements LargeMessageController
             HornetQClientLogger.LOGGER.errorCallingCancel(ignored);
          }
 
-         packets.offer(new SessionReceiveContinuationMessage());
+         largeMessageData.offer(new LargeData());
          streamEnded = true;
          streamClosed = true;
 
@@ -285,12 +283,12 @@ public class LargeMessageControllerImpl implements LargeMessageController
          }
          while (handledException == null)
          {
-            SessionReceiveContinuationMessage packet = packets.poll();
+            LargeData packet = largeMessageData.poll();
             if (packet == null)
             {
                break;
             }
-            totalFlowControl += packet.getPacketSize();
+            totalFlowControl += packet.getFlowControlSize();
 
             continues = packet.isContinues();
             sendPacketToOutput(output, packet);
@@ -429,7 +427,7 @@ public class LargeMessageControllerImpl implements LargeMessageController
       }
       else
       {
-         return currentPacket.getBody()[(int)(index - packetPosition)];
+         return currentPacket.getChunk()[(int)(index - packetPosition)];
       }
    }
 
@@ -1195,11 +1193,11 @@ public class LargeMessageControllerImpl implements LargeMessageController
     * @param packet
     * @throws HornetQException
     */
-   private void sendPacketToOutput(final OutputStream output, final SessionReceiveContinuationMessage packet) throws HornetQException
+   private void sendPacketToOutput(final OutputStream output, final LargeData packet) throws HornetQException
    {
       try
       {
-         output.write(packet.getBody());
+         output.write(packet.getChunk());
          if (!packet.isContinues())
          {
             streamEnded = true;
@@ -1223,25 +1221,25 @@ public class LargeMessageControllerImpl implements LargeMessageController
             throw new IndexOutOfBoundsException();
          }
 
-         int sizeToAdd = currentPacket != null ? currentPacket.getBody().length : 1;
-         currentPacket = packets.poll(readTimeout, TimeUnit.SECONDS);
+         int sizeToAdd = currentPacket != null ? currentPacket.chunk.length : 1;
+         currentPacket = largeMessageData.poll(readTimeout, TimeUnit.SECONDS);
          if (currentPacket == null)
          {
             throw new IndexOutOfBoundsException();
          }
 
-         if (currentPacket.getBody() == null) // Empty packet as a signal to interruption
+         if (currentPacket.chunk == null) // Empty packet as a signal to interruption
          {
             currentPacket = null;
             streamEnded = true;
             throw new IndexOutOfBoundsException();
          }
 
-         consumerInternal.flowControl(currentPacket.getPacketSize(), !currentPacket.isContinues());
+         consumerInternal.flowControl(currentPacket.getFlowControlSize(), !currentPacket.isContinues());
 
          packetPosition += sizeToAdd;
 
-         packetLastPosition = packetPosition + currentPacket.getBody().length;
+         packetLastPosition = packetPosition + currentPacket.getChunk().length;
       }
       catch (IndexOutOfBoundsException e)
       {
@@ -1468,6 +1466,43 @@ public class LargeMessageControllerImpl implements LargeMessageController
    public void writeBytes(final HornetQBuffer src, final int srcIndex, final int length)
    {
       throw new IllegalAccessError(LargeMessageControllerImpl.READ_ONLY_ERROR_MESSAGE);
+   }
+
+
+   private static class LargeData
+   {
+      final byte[] chunk;
+      final int flowControlSize;
+      final boolean continues;
+
+      public LargeData()
+      {
+         continues = false;
+         flowControlSize = 0;
+         chunk = null;
+      }
+
+      public LargeData(byte[] chunk, int flowControlSize, boolean continues)
+      {
+         this.chunk = chunk;
+         this.flowControlSize = flowControlSize;
+         this.continues = continues;
+      }
+
+      public byte[] getChunk()
+      {
+         return chunk;
+      }
+
+      public int getFlowControlSize()
+      {
+         return flowControlSize;
+      }
+
+      public boolean isContinues()
+      {
+         return continues;
+      }
    }
 
 }

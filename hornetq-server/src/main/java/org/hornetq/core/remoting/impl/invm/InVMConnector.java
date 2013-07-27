@@ -19,7 +19,6 @@ import java.util.concurrent.Executor;
 
 import org.hornetq.api.core.HornetQException;
 import org.hornetq.api.core.client.HornetQClient;
-import org.hornetq.core.protocol.core.impl.CoreProtocolManagerFactory;
 import org.hornetq.core.server.HornetQComponent;
 import org.hornetq.core.server.HornetQServerLogger;
 import org.hornetq.core.server.HornetQMessageBundle;
@@ -133,6 +132,11 @@ public class InVMConnector extends AbstractConnector
 
          HornetQServerLogger.LOGGER.debug("Returning null on InVMConnector for tests");
          // For testing only
+         return null;
+      }
+
+      if (acceptor == null)
+      {
          return null;
       }
 

@@ -579,7 +579,7 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
       return browseOnly;
    }
 
-   public synchronized void handleMessage(final SessionReceiveMessage message) throws Exception
+   public synchronized void handleMessage(final ClientMessageInternal message) throws Exception
    {
       if (closing)
       {
@@ -587,23 +587,14 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
          return;
       }
 
-      if (message.getMessage().getBooleanProperty(Message.HDR_LARGE_COMPRESSED))
+      if (message.getBooleanProperty(Message.HDR_LARGE_COMPRESSED))
       {
          handleCompressedMessage(message);
       }
       else
       {
-         handleRegularMessage((ClientMessageInternal)message.getMessage(), message);
+         handleRegularMessage(message);
       }
-   }
-
-   private void handleRegularMessage(final ClientMessageInternal message, final SessionReceiveMessage messagePacket) throws Exception
-   {
-      message.setDeliveryCount(messagePacket.getDeliveryCount());
-
-      message.setFlowControlSize(messagePacket.getPacketSize());
-
-      handleRegularMessage(message);
    }
 
    private void handleRegularMessage(ClientMessageInternal message)
@@ -652,10 +643,8 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
     * Say that you sent a 1G message full of spaces. That could be just bellow 100K compressed but you wouldn't have
     * enough memory to decompress it
     */
-   private void handleCompressedMessage(final SessionReceiveMessage message) throws Exception
+   private void handleCompressedMessage(final ClientMessageInternal clMessage) throws Exception
    {
-      ClientMessageImpl clMessage = (ClientMessageImpl) message.getMessage();
-      //create a ClientLargeMessageInternal out of the message
       ClientLargeMessageImpl largeMessage = new ClientLargeMessageImpl();
       largeMessage.retrieveExistingData(clMessage);
 
@@ -681,13 +670,12 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
       final byte[] body = qbuff.readBytes(bytesToRead).toByteBuffer().array();
 
       largeMessage.setLargeMessageController(new CompressedLargeMessageControllerImpl(currentLargeMessageController));
-      SessionReceiveContinuationMessage packet = new SessionReceiveContinuationMessage(this.getID(), body, false, false, body.length);
-      currentLargeMessageController.addPacket(packet);
+      currentLargeMessageController.addPacket(body, body.length, false);
 
-      handleRegularMessage(largeMessage, message);
+      handleRegularMessage(clMessage);
    }
 
-   public synchronized void handleLargeMessage(final SessionReceiveLargeMessage packet) throws Exception
+   public synchronized void handleLargeMessage(final ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception
    {
       if (closing)
       {
@@ -696,17 +684,11 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
       }
 
       // Flow control for the first packet, we will have others
-      ClientLargeMessageInternal currentChunkMessage = (ClientLargeMessageInternal)packet.getLargeMessage();
-
-      currentChunkMessage.setFlowControlSize(packet.getPacketSize());
-
-      currentChunkMessage.setDeliveryCount(packet.getDeliveryCount());
-
       File largeMessageCache = null;
 
       if (session.isCacheLargeMessageClient())
       {
-         largeMessageCache = File.createTempFile("tmp-large-message-" + currentChunkMessage.getMessageID() + "-",
+         largeMessageCache = File.createTempFile("tmp-large-message-" + clientLargeMessage.getMessageID() + "-",
                                                  ".tmp");
          largeMessageCache.deleteOnExit();
       }
@@ -715,21 +697,21 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
       ServerLocator locator = sf.getServerLocator();
       long callTimeout = locator.getCallTimeout();
 
-      currentLargeMessageController = new LargeMessageControllerImpl(this, packet.getLargeMessageSize(), callTimeout, largeMessageCache);
+      currentLargeMessageController = new LargeMessageControllerImpl(this, largeMessageSize, callTimeout, largeMessageCache);
 
-      if (currentChunkMessage.isCompressed())
+      if (clientLargeMessage.isCompressed())
       {
-         currentChunkMessage.setLargeMessageController(new CompressedLargeMessageControllerImpl(currentLargeMessageController));
+         clientLargeMessage.setLargeMessageController(new CompressedLargeMessageControllerImpl(currentLargeMessageController));
       }
       else
       {
-         currentChunkMessage.setLargeMessageController(currentLargeMessageController);
+         clientLargeMessage.setLargeMessageController(currentLargeMessageController);
       }
 
-      handleRegularMessage(currentChunkMessage);
+      handleRegularMessage(clientLargeMessage);
    }
 
-   public synchronized void handleLargeMessageContinuation(final SessionReceiveContinuationMessage chunk) throws Exception
+   public synchronized void handleLargeMessageContinuation(final byte[] chunk, final int flowControlSize, final boolean isContinues) throws Exception
    {
       if (closing)
       {
@@ -739,13 +721,13 @@ public final class ClientConsumerImpl implements ClientConsumerInternal
       {
          if (isTrace)
          {
-            HornetQClientLogger.LOGGER.trace("Sending back credits for largeController = null " + chunk.getPacketSize());
+            HornetQClientLogger.LOGGER.trace("Sending back credits for largeController = null " + flowControlSize);
          }
-         flowControl(chunk.getPacketSize(), false);
+         flowControl(flowControlSize, false);
       }
       else
       {
-         currentLargeMessageController.addPacket(chunk);
+         currentLargeMessageController.addPacket(chunk, flowControlSize, isContinues);
       }
    }
 

@@ -104,7 +104,7 @@ public class ReplicatedFailoverTest extends FailoverTest
       {
          for (ClientSession session : sessions)
          {
-            waitForRemoteBackup(((ClientSessionInternal)session).getSessionFactory(), 5, true, backupServer.getServer());
+            waitForRemoteBackup(session.getSessionFactory(), 5, true, backupServer.getServer());
          }
       }
       else
@@ -121,7 +121,7 @@ public class ReplicatedFailoverTest extends FailoverTest
       {
          for (ClientSession session : sessions)
          {
-            waitForRemoteBackup(((ClientSessionInternal)session).getSessionFactory(), 5, true, backupServer.getServer());
+            waitForRemoteBackup(session.getSessionFactory(), 5, true, backupServer.getServer());
          }
       }
       else

@@ -41,10 +41,12 @@ import org.hornetq.api.core.client.ClientConsumer;
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.api.core.client.ClientProducer;
 import org.hornetq.api.core.client.ClientSession;
+import org.hornetq.api.core.client.ClientSessionFactory;
 import org.hornetq.api.core.client.FailoverEventListener;
 import org.hornetq.api.core.client.SendAcknowledgementHandler;
 import org.hornetq.api.core.client.SessionFailureListener;
 import org.hornetq.core.client.impl.ClientMessageImpl;
+import org.hornetq.core.client.impl.ClientSessionFactoryInternal;
 import org.hornetq.core.remoting.FailureListener;
 import org.hornetq.jms.client.HornetQBytesMessage;
 import org.hornetq.jms.client.HornetQMapMessage;
@@ -1452,6 +1454,12 @@ public class MessageHeaderTest extends MessageHeaderTestBase
       {
          // TODO Auto-generated method stub
 
+      }
+
+      @Override
+      public ClientSessionFactory getSessionFactory()
+      {
+         return null;
       }
    }
 }

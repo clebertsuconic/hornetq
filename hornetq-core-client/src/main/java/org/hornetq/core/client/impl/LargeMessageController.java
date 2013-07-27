@@ -58,7 +58,7 @@ public interface LargeMessageController extends HornetQBuffer
     */
    void saveBuffer(final OutputStream output) throws HornetQException;
 
-   public void addPacket(final SessionReceiveContinuationMessage packet);
+   public void addPacket(byte[] chunk, int flowControlSize, boolean isContinues);
 
    /**
     * Waits for the completion for the specified waiting time (in milliseconds).

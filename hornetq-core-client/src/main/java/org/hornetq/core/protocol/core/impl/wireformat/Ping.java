@@ -19,6 +19,7 @@ import org.hornetq.core.protocol.core.impl.PacketImpl;
 import org.hornetq.spi.core.protocol.RemotingConnection;
 
 /**
+ * // DONE the protocol conversion (remove this line)
  * Ping is sent on the client side at {@link ClientSessionFactoryImpl}. At the server's side it is
  * treated at {@link RemotingServiceImpl}
  * @see RemotingConnection#checkDataReceived()

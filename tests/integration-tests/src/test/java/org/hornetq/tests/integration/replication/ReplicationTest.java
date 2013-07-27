@@ -12,6 +12,7 @@
  */
 
 package org.hornetq.tests.integration.replication;
+import org.hornetq.core.protocol.core.CoreRemotingConnection;
 import org.junit.Before;
 import org.junit.After;
 
@@ -183,7 +184,7 @@ public final class ReplicationTest extends ServiceTestBase
       try
       {
          ClientSessionFactory sf = createSessionFactory(locator);
-         manager = new ReplicationManager(sf.getConnection(), factory);
+         manager = new ReplicationManager((CoreRemotingConnection)sf.getConnection(), factory);
          addHornetQComponent(manager);
          manager.start();
          Assert.fail("Exception was expected");

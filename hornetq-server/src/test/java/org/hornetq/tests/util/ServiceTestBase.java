@@ -376,14 +376,16 @@ public abstract class ServiceTestBase extends UnitTestCase
    }
 
    /**
-    * @param sessionFactory
+    * @param sessionFactoryP
     * @param seconds
     * @param waitForSync
     * @param backup
     */
-   public static final void waitForRemoteBackup(ClientSessionFactoryInternal sessionFactory, int seconds,
+   public static final void waitForRemoteBackup(ClientSessionFactory sessionFactoryP, int seconds,
                                           boolean waitForSync, final HornetQServer backup)
    {
+      final ClientSessionFactoryInternal sessionFactory = (ClientSessionFactoryInternal)sessionFactoryP;
+
       final HornetQServerImpl actualServer = (HornetQServerImpl)backup;
       final long toWait = seconds * 1000;
       final long time = System.currentTimeMillis();

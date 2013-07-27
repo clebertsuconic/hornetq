@@ -55,11 +55,10 @@ final class CompressedLargeMessageControllerImpl implements LargeMessageControll
 
    /**
     * Add a buff to the List, or save it to the OutputStream if set
-    * @param packet
     */
-   public void addPacket(final SessionReceiveContinuationMessage packet)
+   public void addPacket(byte[] chunk, int flowControlSize, boolean isContinues)
    {
-      bufferDelegate.addPacket(packet);
+      bufferDelegate.addPacket(chunk, flowControlSize, isContinues);
    }
 
    public synchronized void cancel()

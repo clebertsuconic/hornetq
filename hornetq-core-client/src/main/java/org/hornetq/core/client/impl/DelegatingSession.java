@@ -25,12 +25,12 @@ import org.hornetq.api.core.SimpleString;
 import org.hornetq.api.core.client.ClientConsumer;
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.api.core.client.ClientProducer;
+import org.hornetq.api.core.client.ClientSessionFactory;
 import org.hornetq.api.core.client.FailoverEventListener;
 import org.hornetq.api.core.client.SendAcknowledgementHandler;
 import org.hornetq.api.core.client.SessionFailureListener;
 import org.hornetq.core.client.HornetQClientLogger;
 import org.hornetq.core.protocol.core.Channel;
-import org.hornetq.core.protocol.core.CoreRemotingConnection;
 import org.hornetq.core.protocol.core.impl.wireformat.SessionReceiveContinuationMessage;
 import org.hornetq.core.protocol.core.impl.wireformat.SessionReceiveLargeMessage;
 import org.hornetq.core.protocol.core.impl.wireformat.SessionReceiveMessage;
@@ -386,29 +386,14 @@ public class DelegatingSession implements ClientSessionInternal
       return session.getXAResource();
    }
 
-   public void preHandleFailover(CoreRemotingConnection connection)
+   public void preHandleFailover(RemotingConnection connection)
    {
       session.preHandleFailover(connection);
    }
 
-   public void handleFailover(final CoreRemotingConnection backupConnection)
+   public void handleFailover(final RemotingConnection backupConnection)
    {
       session.handleFailover(backupConnection);
-   }
-
-   public void handleReceiveContinuation(final long consumerID, final SessionReceiveContinuationMessage continuation) throws Exception
-   {
-      session.handleReceiveContinuation(consumerID, continuation);
-   }
-
-   public void handleReceiveLargeMessage(final long consumerID, final SessionReceiveLargeMessage message) throws Exception
-   {
-      session.handleReceiveLargeMessage(consumerID, message);
-   }
-
-   public void handleReceiveMessage(final long consumerID, final SessionReceiveMessage message) throws Exception
-   {
-      session.handleReceiveMessage(consumerID, message);
    }
 
    public boolean isAutoCommitAcks()
@@ -481,6 +466,24 @@ public class DelegatingSession implements ClientSessionInternal
       session.removeProducer(producer);
    }
 
+   @Override
+   public void handleReceiveMessage(long consumerID, ClientMessageInternal message) throws Exception
+   {
+      session.handleReceiveMessage(consumerID, message);
+   }
+
+   @Override
+   public void handleReceiveLargeMessage(long consumerID, ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception
+   {
+      session.handleReceiveLargeMessage(consumerID, clientLargeMessage, largeMessageSize);
+   }
+
+   @Override
+   public void handleReceiveContinuation(long consumerID, byte[] chunk, int flowControlSize, boolean isContinues) throws Exception
+   {
+      session.handleReceiveContinuation(consumerID, chunk, flowControlSize, isContinues);
+   }
+
    public void returnBlocking()
    {
       session.returnBlocking();
@@ -536,7 +539,7 @@ public class DelegatingSession implements ClientSessionInternal
       session.stop();
    }
 
-   public ClientSessionFactoryInternal getSessionFactory()
+   public ClientSessionFactory getSessionFactory()
    {
       return session.getSessionFactory();
    }

@@ -12,6 +12,8 @@
  */
 
 package org.hornetq.tests.unit.core.client.impl;
+import org.hornetq.core.client.impl.ClientLargeMessageInternal;
+import org.hornetq.core.client.impl.ClientMessageInternal;
 import org.junit.Before;
 import org.junit.After;
 
@@ -302,7 +304,7 @@ public class LargeMessageBufferTest extends UnitTestCase
 
       final LargeMessageControllerImpl buffer = new LargeMessageControllerImpl(new FakeConsumerInternal(), 10, 10);
 
-      buffer.addPacket(new FakePacket(-1, new byte[] { 0, 1, 2, 3, 4 }, true, true));
+      buffer.addPacket(new byte[] { 0, 1, 2, 3, 4 }, 1, true);
 
       byte bytes[] = new byte[30];
       buffer.readBytes(bytes, 0, 5);
@@ -387,7 +389,7 @@ public class LargeMessageBufferTest extends UnitTestCase
             {
                buffer[j] = getSamplebyte(count++);
             }
-            outBuffer.addPacket(new FakePacket(1, buffer, true, false));
+            outBuffer.addPacket(buffer, 1, true);
          }
 
          outBuffer.readerIndex(0);
@@ -472,7 +474,7 @@ public class LargeMessageBufferTest extends UnitTestCase
 
       for (int i = 0; i < 3; i++)
       {
-         outBuffer.addPacket(new FakePacket(-1, new byte[1024], true, false));
+         outBuffer.addPacket(new byte[1024], 1, true);
       }
 
       outBuffer.setOutputStream(output);
@@ -507,12 +509,12 @@ public class LargeMessageBufferTest extends UnitTestCase
 
       for (int i = 0; i < 8; i++)
       {
-         outBuffer.addPacket(new FakePacket(-1, new byte[1024], true, false));
+         outBuffer.addPacket(new byte[1024], 1, true);
       }
 
       Assert.assertEquals(1, waiting.getCount());
 
-      outBuffer.addPacket(new FakePacket(-1, new byte[123], false, false));
+      outBuffer.addPacket(new byte[123], 1, false);
 
       Assert.assertTrue(done2.await(10, TimeUnit.SECONDS));
 
@@ -597,12 +599,12 @@ public class LargeMessageBufferTest extends UnitTestCase
          {
             try
             {
+               Thread.sleep(100);
+               outBuffer.addPacket(new byte[]{0}, 1, true);
+               Thread.sleep(100);
+               outBuffer.addPacket(new byte[]{0}, 1, true);
                Thread.sleep(200);
-               outBuffer.addPacket(new FakePacket(-1, new byte[] { 0 }, true, false));
-               Thread.sleep(1000);
-               outBuffer.addPacket(new FakePacket(-1, new byte[] { 0 }, true, false));
-               Thread.sleep(1000);
-               outBuffer.addPacket(new FakePacket(-1, new byte[] { 0 }, false, false));
+               outBuffer.addPacket(new byte[] { 0 }, 1, false);
             }
             catch (Exception e)
             {
@@ -611,7 +613,7 @@ public class LargeMessageBufferTest extends UnitTestCase
       };
 
       sender.start();
-      outBuffer.waitCompletion(0);
+      assertTrue(outBuffer.waitCompletion(5000));
       sender.join();
    }
 
@@ -621,7 +623,7 @@ public class LargeMessageBufferTest extends UnitTestCase
       long start = System.currentTimeMillis();
       final LargeMessageControllerImpl outBuffer = new LargeMessageControllerImpl(new FakeConsumerInternal(), 5, 30000);
 
-      outBuffer.addPacket(new FakePacket(-1, new byte[] { 0, 1, 2, 3, 4 }, true, false));
+      outBuffer.addPacket(new byte[] { 0, 1, 2, 3, 4 }, 1, true);
 
       final CountDownLatch latchBytesWritten1 = new CountDownLatch(5);
       final CountDownLatch latchBytesWritten2 = new CountDownLatch(10);
@@ -736,38 +738,21 @@ public class LargeMessageBufferTest extends UnitTestCase
          {
             break;
          }
-
-         SessionReceiveContinuationMessage packet = null;
-
          if (size < splitFactor)
          {
             byte[] newSplit = new byte[size];
             System.arraycopy(splitElement, 0, newSplit, 0, size);
 
-            packet = new FakePacket(1, newSplit, input.available() > 0, false);
+            outBuffer.addPacket(newSplit, 1, input.available() > 0);
          }
          else
          {
-            packet = new FakePacket(1, splitElement, input.available() > 0, false);
+            outBuffer.addPacket(splitElement, 1, input.available() > 0);
          }
-
-         outBuffer.addPacket(packet);
       }
 
       return outBuffer;
 
-   }
-
-   private class FakePacket extends SessionReceiveContinuationMessage
-   {
-      public FakePacket(final long consumerID,
-                        final byte[] body,
-                        final boolean continues,
-                        final boolean requiresResponse)
-      {
-         super(consumerID, body, continues, requiresResponse);
-         size = 1;
-      }
    }
 
    /**
@@ -889,29 +874,25 @@ public class LargeMessageBufferTest extends UnitTestCase
 
          return null;
       }
-
-      public void handleLargeMessage(final SessionReceiveLargeMessage largeMessageHeader) throws Exception
-      {
-
-
-      }
-
-      public void handleLargeMessageContinuation(final SessionReceiveContinuationMessage continuation) throws Exception
-      {
-
-
-      }
-
-      public void handleMessage(final SessionReceiveMessage message) throws Exception
-      {
-
-
-      }
-
       public boolean isBrowseOnly()
       {
 
          return false;
+      }
+
+      @Override
+      public void handleMessage(ClientMessageInternal message) throws Exception
+      {
+      }
+
+      @Override
+      public void handleLargeMessage(ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception
+      {
+      }
+
+      @Override
+      public void handleLargeMessageContinuation(byte[] chunk, int flowControlSize, boolean isContinues) throws Exception
+      {
       }
 
       public void start()

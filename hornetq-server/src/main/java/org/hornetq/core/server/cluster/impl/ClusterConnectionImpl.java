@@ -51,6 +51,7 @@ import org.hornetq.core.postoffice.Binding;
 import org.hornetq.core.postoffice.Bindings;
 import org.hornetq.core.postoffice.PostOffice;
 import org.hornetq.core.postoffice.impl.PostOfficeImpl;
+import org.hornetq.core.protocol.core.CoreRemotingConnection;
 import org.hornetq.core.protocol.core.impl.wireformat.NodeAnnounceMessage;
 import org.hornetq.core.server.HornetQMessageBundle;
 import org.hornetq.core.server.HornetQServer;
@@ -538,7 +539,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
                ClientSessionFactory backupSessionFactory = localBackupLocator.connect();
                if (backupSessionFactory != null)
                {
-                  backupSessionFactory.getConnection()
+                  ((CoreRemotingConnection)backupSessionFactory.getConnection())
                                       .getChannel(0, -1)
                                       .send(new NodeAnnounceMessage(System.currentTimeMillis(),
                                                                     nodeManager.getNodeId().toString(),

@@ -634,4 +634,12 @@ public interface ClientSession extends XAResource, AutoCloseable
     * @throws HornetQException
     */
    void addUniqueMetaData(String key, String data) throws HornetQException;
+
+
+   /**
+    * Return the sessionFactory used to created this Session.
+    * @return
+    */
+   ClientSessionFactory getSessionFactory();
+
 }

@@ -17,7 +17,10 @@ import java.util.Map;
 /**
  * A Connector is used by the client for creating and controlling a connection.
  *
+ * TODO: move this to the api somewhere
+ *
  * @author <a href="mailto:tim.fox@jboss.com">Tim Fox</a>
+ * @author Clebert Suconic - added Protocol wrapper making it independent of HornetQ
  */
 public interface Connector
 {
@@ -47,6 +50,8 @@ public interface Connector
     * @return The connection, or null if unable to create a connection (e.g. network is unavailable)
     */
    Connection createConnection();
+
+   ClientProtocolManagerFactory getProtocolManagerFactory();
 
    /**
     * If the configuration is equivalent to this connector, which means

@@ -6,7 +6,7 @@ package org.hornetq.utils;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- *
+ * TODO: get rid of this
  */
 public final class ConfirmationWindowWarning
 {

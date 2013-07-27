@@ -206,7 +206,7 @@ public final class ClientLargeMessageImpl extends ClientMessageImpl implements C
       }
    }
 
-   public void retrieveExistingData(ClientMessageImpl clMessage)
+   public void retrieveExistingData(ClientMessageInternal clMessage)
    {
       this.messageID = clMessage.getMessageID();
       this.address = clMessage.getAddress();
