@@ -17,8 +17,13 @@
  */
 package org.hornetq.tests.integration.stomp;
 
-import org.junit.Test;
-
+import javax.jms.BytesMessage;
+import javax.jms.DeliveryMode;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.MessageProducer;
+import javax.jms.TextMessage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -27,18 +32,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.jms.BytesMessage;
-import javax.jms.DeliveryMode;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
-import javax.jms.MessageProducer;
-import javax.jms.TextMessage;
-
-import org.junit.Assert;
 
 import org.hornetq.core.protocol.stomp.Stomp;
 import org.hornetq.tests.integration.IntegrationTestLogger;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class StompTest extends StompTestBase
 {
@@ -81,10 +79,10 @@ public class StompTest extends StompTestBase
    {
 
       String connect_frame = "CONNECT\n" + "login: brianm\n" +
-                             "passcode: wombats\n" +
-                             "request-id: 1\n" +
-                             "\n" +
-                             Stomp.NULL;
+         "passcode: wombats\n" +
+         "request-id: 1\n" +
+         "\n" +
+         Stomp.NULL;
       sendFrame(connect_frame);
 
       String f = receiveFrame(10000);
@@ -97,10 +95,10 @@ public class StompTest extends StompTestBase
    {
 
       String connectFrame = "CONNECT\n" + "login: brianm\n" +
-                            "passcode: wombats\n" +
-                            "request-id: 1\n" +
-                            "\n" +
-                            Stomp.NULL;
+         "passcode: wombats\n" +
+         "request-id: 1\n" +
+         "\n" +
+         Stomp.NULL;
       sendFrame(connectFrame);
 
       String f = receiveFrame(10000);
@@ -114,11 +112,11 @@ public class StompTest extends StompTestBase
 
       // sending a message will result in an error
       String frame = "SEND\n" + "destination:" +
-                     getQueuePrefix() +
-                     getQueueName() +
-                     "\n\n" +
-                     "Hello World" +
-                     Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
       try
       {
          sendFrame(frame);
@@ -176,12 +174,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL +
-              "\n";
+         getQueuePrefix() +
+         getQueueName() +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL +
+         "\n";
 
       sendFrame(frame);
 
@@ -208,12 +206,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "receipt: 1234\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "receipt: 1234\n\n" +
+         "Hello World" +
+         Stomp.NULL;
 
       sendFrame(frame);
 
@@ -244,15 +242,15 @@ public class StompTest extends StompTestBase
       frame = receiveFrame(10000);
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
-      byte[] data = new byte[] { 1, 0, 0, 4 };
+      byte[] data = new byte[]{1, 0, 0, 4};
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "content-length:" +
-              data.length +
-              "\n\n";
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "content-length:" +
+         data.length +
+         "\n\n";
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       baos.write(frame.getBytes("UTF-8"));
       baos.write(data);
@@ -282,12 +280,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "JMSXGroupID: TEST\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "JMSXGroupID: TEST\n\n" +
+         "Hello World" +
+         Stomp.NULL;
 
       sendFrame(frame);
 
@@ -311,13 +309,13 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SEND\n" + "foo:abc\n" +
-              "bar:123\n" +
-              "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         "bar:123\n" +
+         "destination:" +
+         getQueuePrefix() +
+         getQueueName() +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
 
       sendFrame(frame);
 
@@ -341,18 +339,18 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SEND\n" + "correlation-id:c123\n" +
-              "persistent:true\n" +
-              "priority:3\n" +
-              "type:t345\n" +
-              "JMSXGroupID:abc\n" +
-              "foo:abc\n" +
-              "bar:123\n" +
-              "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         "persistent:true\n" +
+         "priority:3\n" +
+         "type:t345\n" +
+         "JMSXGroupID:abc\n" +
+         "foo:abc\n" +
+         "bar:123\n" +
+         "destination:" +
+         getQueuePrefix() +
+         getQueueName() +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
 
       sendFrame(frame);
 
@@ -381,7 +379,7 @@ public class StompTest extends StompTestBase
 
       frame = receiveFrame(10000);
       Assert.assertTrue(frame.startsWith("CONNECTED"));
-      
+
       StringBuffer buffer = new StringBuffer();
       for (int i = 0; i < 1024; i++)
       {
@@ -390,18 +388,18 @@ public class StompTest extends StompTestBase
       String longHeader = "longHeader:" + buffer.toString() + "\n";
 
       frame = "SEND\n" + "correlation-id:c123\n" +
-              "persistent:true\n" +
-              "priority:3\n" +
-              "type:t345\n" +
-              "JMSXGroupID:abc\n" +
-              "foo:abc\n" +
-              longHeader +
-              "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         "persistent:true\n" +
+         "priority:3\n" +
+         "type:t345\n" +
+         "JMSXGroupID:abc\n" +
+         "foo:abc\n" +
+         longHeader +
+         "destination:" +
+         getQueuePrefix() +
+         getQueueName() +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
 
       sendFrame(frame);
 
@@ -462,7 +460,7 @@ public class StompTest extends StompTestBase
       frame = "SUBSCRIBE\n" + "destination:" + getQueuePrefix() + getQueueName() + "\n" + "ack:auto\n\n" + Stomp.NULL;
       sendFrame(frame);
 
-      byte[] payload = new byte[] { 1, 2, 3, 4, 5 };
+      byte[] payload = new byte[]{1, 2, 3, 4, 5};
       sendMessage(payload, queue);
 
       frame = receiveFrame(10000);
@@ -539,12 +537,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "ack:auto\n" +
-              "id: mysubid\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "ack:auto\n" +
+         "id: mysubid\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
 
       sendMessage(getName());
@@ -643,12 +641,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "selector: foo = 'zzz'\n" +
-              "ack:auto\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "selector: foo = 'zzz'\n" +
+         "ack:auto\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
 
       sendMessage("Ignored message", "foo", "1234");
@@ -796,11 +794,11 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "receipt: 1234\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "receipt: 1234\n\n" +
+         Stomp.NULL;
 
       sendFrame(frame);
       // wait for SUBSCRIBE's receipt
@@ -836,12 +834,12 @@ public class StompTest extends StompTestBase
 
       // remove suscription
       frame = "UNSUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "receipt:567\n" +
-              "\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "receipt:567\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       waitForReceipt();
 
@@ -870,12 +868,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "id: mysubid\n" +
-              "ack:auto\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "id: mysubid\n" +
+         "ack:auto\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
 
       // send a message to our queue
@@ -920,14 +918,14 @@ public class StompTest extends StompTestBase
       sendFrame(frame);
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "transaction: tx1\n" +
-              "receipt: 123\n" +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "transaction: tx1\n" +
+         "receipt: 123\n" +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
       sendFrame(frame);
       waitForReceipt();
 
@@ -958,13 +956,13 @@ public class StompTest extends StompTestBase
       sendFrame(frame);
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "transaction: tx1\n" +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "transaction: tx1\n" +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
       sendFrame(frame);
 
       frame = "COMMIT\n" + "transaction: tx1\n" + "\n\n" + Stomp.NULL;
@@ -978,13 +976,13 @@ public class StompTest extends StompTestBase
       sendFrame(frame);
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "transaction: tx1\n" +
-              "\n\n" +
-              "Hello World" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "transaction: tx1\n" +
+         "\n\n" +
+         "Hello World" +
+         Stomp.NULL;
       sendFrame(frame);
 
       frame = "COMMIT\n" + "transaction: tx1\n" + "\n\n" + Stomp.NULL;
@@ -1030,13 +1028,13 @@ public class StompTest extends StompTestBase
       sendFrame(frame);
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "transaction: tx1\n" +
-              "\n" +
-              "first message" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "transaction: tx1\n" +
+         "\n" +
+         "first message" +
+         Stomp.NULL;
       sendFrame(frame);
 
       // rollback first message
@@ -1047,13 +1045,13 @@ public class StompTest extends StompTestBase
       sendFrame(frame);
 
       frame = "SEND\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "transaction: tx1\n" +
-              "\n" +
-              "second message" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "transaction: tx1\n" +
+         "\n" +
+         "second message" +
+         Stomp.NULL;
       sendFrame(frame);
 
       frame = "COMMIT\n" + "transaction: tx1\n" + "receipt:789\n" + "\n\n" + Stomp.NULL;
@@ -1077,12 +1075,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getTopicPrefix() +
-              getTopicName() +
-              "\n" +
-              "receipt: 12\n" +
-              "\n\n" +
-              Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 12\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       // wait for SUBSCRIBE's receipt
       frame = receiveFrame(10000);
@@ -1096,12 +1094,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.indexOf(getName()) > 0);
 
       frame = "UNSUBSCRIBE\n" + "destination:" +
-              getTopicPrefix() +
-              getTopicName() +
-              "\n" +
-              "receipt: 1234\n" +
-              "\n\n" +
-              Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 1234\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       // wait for UNSUBSCRIBE's receipt
       frame = receiveFrame(10000);
@@ -1129,23 +1127,23 @@ public class StompTest extends StompTestBase
    {
 
       String connectFame = "CONNECT\n" + "login: brianm\n" +
-                           "passcode: wombats\n" +
-                           "client-id: myclientid\n\n" +
-                           Stomp.NULL;
+         "passcode: wombats\n" +
+         "client-id: myclientid\n\n" +
+         Stomp.NULL;
       sendFrame(connectFame);
 
       String frame = receiveFrame(100000);
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       String subscribeFrame = "SUBSCRIBE\n" + "destination:" +
-                              getTopicPrefix() +
-                              getTopicName() +
-                              "\n" +
-                              "durable-subscriber-name: " +
-                              getName() +
-                              "\n" +
-                              "\n\n" +
-                              Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "durable-subscriber-name: " +
+         getName() +
+         "\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(subscribeFrame);
       waitForFrameToTakeEffect();
 
@@ -1170,12 +1168,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.indexOf(getName()) > 0);
 
       String unsubscribeFrame = "UNSUBSCRIBE\n" + "destination:" +
-                                getTopicPrefix() +
-                                getTopicName() +
-                                "\n" +
-                                "receipt: 1234\n" +
-                                "\n\n" +
-                                Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 1234\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(unsubscribeFrame);
       // wait for UNSUBSCRIBE's receipt
       frame = receiveFrame(10000);
@@ -1195,15 +1193,15 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       String subscribeFrame = "SUBSCRIBE\n" + "destination:" +
-                              getTopicPrefix() +
-                              getTopicName() +
-                              "\n" +
-                              "receipt: 12\n" +
-                              "durable-subscriber-name: " +
-                              getName() +
-                              "\n" +
-                              "\n\n" +
-                              Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 12\n" +
+         "durable-subscriber-name: " +
+         getName() +
+         "\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(subscribeFrame);
       // wait for SUBSCRIBE's receipt
       frame = receiveFrame(10000);
@@ -1229,13 +1227,13 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getTopicPrefix() +
-              getTopicName() +
-              "\n" +
-              "receipt: 12\n" +
-              "no-local: true\n" +
-              "\n\n" +
-              Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 12\n" +
+         "no-local: true\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       // wait for SUBSCRIBE's receipt
       frame = receiveFrame(10000);
@@ -1277,12 +1275,12 @@ public class StompTest extends StompTestBase
       Assert.assertTrue(frame.startsWith("CONNECTED"));
 
       frame = "SUBSCRIBE\n" + "destination:" +
-              getQueuePrefix() +
-              getQueueName() +
-              "\n" +
-              "ack:client\n" +
-              "\n\n" +
-              Stomp.NULL;
+         getQueuePrefix() +
+         getQueueName() +
+         "\n" +
+         "ack:client\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
 
       sendMessage(getName());
@@ -1341,12 +1339,12 @@ public class StompTest extends StompTestBase
       frame = receiveFrame(TIME_OUT);
       Assert.assertTrue(frame.startsWith("CONNECTED"));
       frame = "SUBSCRIBE\n" + "destination:" +
-            getTopicPrefix() +
-            getTopicName() +
-            "\n" +
-            "receipt: 12\n" +
-            "\n\n" +
-            Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 12\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       // wait for SUBSCRIBE's receipt
       frame = receiveFrame(TIME_OUT);
@@ -1369,12 +1367,12 @@ public class StompTest extends StompTestBase
       consumer1.close();
       consumer2.close();
       frame = "UNSUBSCRIBE\n" + "destination:" +
-            getTopicPrefix() +
-            getTopicName() +
-            "\n" +
-            "receipt: 1234\n" +
-            "\n\n" +
-            Stomp.NULL;
+         getTopicPrefix() +
+         getTopicName() +
+         "\n" +
+         "receipt: 1234\n" +
+         "\n\n" +
+         Stomp.NULL;
       sendFrame(frame);
       // wait for UNSUBSCRIBE's receipt
       frame = receiveFrame(TIME_OUT);

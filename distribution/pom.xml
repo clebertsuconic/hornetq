@@ -12,18 +12,22 @@
    <packaging>pom</packaging>
    <name>HornetQ Distribution</name>
 
+   <properties>
+      <skipStyleCheck>true</skipStyleCheck>
+   </properties>
+
    <dependencies>
-       <dependency>
-           <groupId>org.jboss.spec.javax.jms</groupId>
-           <artifactId>jboss-jms-api_1.1_spec</artifactId>
-       </dependency>
       <dependency>
-          <groupId>org.jboss.naming</groupId>
-          <artifactId>jnpserver</artifactId>
+         <groupId>org.jboss.spec.javax.jms</groupId>
+         <artifactId>jboss-jms-api_1.1_spec</artifactId>
       </dependency>
       <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty</artifactId>
+         <groupId>org.jboss.naming</groupId>
+         <artifactId>jnpserver</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>io.netty</groupId>
+         <artifactId>netty</artifactId>
       </dependency>
    </dependencies>
 

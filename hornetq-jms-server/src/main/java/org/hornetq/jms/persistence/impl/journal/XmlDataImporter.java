@@ -14,6 +14,10 @@
 package org.hornetq.jms.persistence.impl.journal;
 
 
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,11 +30,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
 
 import org.hornetq.api.core.Message;
 import org.hornetq.api.core.SimpleString;
@@ -128,9 +127,9 @@ public final class XmlDataImporter
       connectionParams.put(TransportConstants.HOST_PROP_NAME, host);
       connectionParams.put(TransportConstants.PORT_PROP_NAME, port);
       ServerLocator serverLocator =
-            HornetQClient.createServerLocatorWithoutHA(new TransportConfiguration(
-                  NettyConnectorFactory.class.getName(),
-                  connectionParams));
+         HornetQClient.createServerLocatorWithoutHA(new TransportConfiguration(
+            NettyConnectorFactory.class.getName(),
+            connectionParams));
       ClientSessionFactory sf = serverLocator.createSessionFactory();
       session = sf.createSession(false, !transactional, true);
       managementSession = sf.createSession(false, true, true);
@@ -144,7 +143,7 @@ public final class XmlDataImporter
 
    // Public --------------------------------------------------------
 
-   public static void main(String arg[])
+   public static void main(String[] arg)
    {
       if (arg.length < 3)
       {
@@ -342,7 +341,7 @@ public final class XmlDataImporter
             managementSession.start();
             HornetQServerLogger.LOGGER.debug("Requesting ID for: " + queue);
             ClientMessage reply = requestor.request(managementMessage);
-            queueID = (Integer) ManagementHelper.getResult(reply);
+            queueID = (Integer)ManagementHelper.getResult(reply);
             requestor.close();
             HornetQServerLogger.LOGGER.debug("ID for " + queue + " is: " + queueID);
             queueIDs.put(queue, queueID);  // store it so we don't have to look it up every time
@@ -491,7 +490,7 @@ public final class XmlDataImporter
          }
          FileInputStream fileInputStream = new FileInputStream(tempFileName);
          BufferedInputStream bufferedInput = new BufferedInputStream(fileInputStream);
-         ((ClientMessage) message).setBodyInputStream(bufferedInput);
+         ((ClientMessage)message).setBodyInputStream(bufferedInput);
       }
       else
       {
@@ -844,44 +843,44 @@ public final class XmlDataImporter
       ClientRequestor requestor = new ClientRequestor(managementSession, "jms.queue.hornetq.management");
       ClientMessage managementMessage = managementSession.createMessage(false);
       ManagementHelper.putOperationInvocation(managementMessage,
-            ResourceNames.JMS_SERVER,
-            "createConnectionFactory",
-            name,
-            Boolean.parseBoolean(ha),
-            discoveryGroupName.length() > 0 ? true : false,
-            Integer.parseInt(type),
-            connectors,
-            entries,
-            clientId,
-            Long.parseLong(clientFailureCheckPeriod),
-            Long.parseLong(connectionTtl),
-            Long.parseLong(callTimeout),
-            Long.parseLong(callFailoverTimeout),
-            Integer.parseInt(minLargeMessageSize),
-            Boolean.parseBoolean(compressLargeMessages),
-            Integer.parseInt(consumerWindowSize),
-            Integer.parseInt(consumerMaxRate),
-            Integer.parseInt(confirmationWindowSize),
-            Integer.parseInt(producerWindowSize),
-            Integer.parseInt(producerMaxRate),
-            Boolean.parseBoolean(blockOnAcknowledge),
-            Boolean.parseBoolean(blockOnDurableSend),
-            Boolean.parseBoolean(blockOnNonDurableSend),
-            Boolean.parseBoolean(autoGroup),
-            Boolean.parseBoolean(preacknowledge),
-            loadBalancingPolicyClassName,
-            Integer.parseInt(transactionBatchSize),
-            Integer.parseInt(dupsOkBatchSize),
-            Boolean.parseBoolean(useGlobalPools),
-            Integer.parseInt(scheduledThreadMaxPoolSize),
-            Integer.parseInt(threadMaxPoolSize),
-            Long.parseLong(retryInterval),
-            Double.parseDouble(retryIntervalMultiplier),
-            Long.parseLong(maxRetryInterval),
-            Integer.parseInt(reconnectAttempts),
-            Boolean.parseBoolean(failoverOnInitialConnection),
-            groupId);
-            //Boolean.parseBoolean(cacheLargeMessagesClient));
+                                              ResourceNames.JMS_SERVER,
+                                              "createConnectionFactory",
+                                              name,
+                                              Boolean.parseBoolean(ha),
+                                              discoveryGroupName.length() > 0 ? true : false,
+                                              Integer.parseInt(type),
+                                              connectors,
+                                              entries,
+                                              clientId,
+                                              Long.parseLong(clientFailureCheckPeriod),
+                                              Long.parseLong(connectionTtl),
+                                              Long.parseLong(callTimeout),
+                                              Long.parseLong(callFailoverTimeout),
+                                              Integer.parseInt(minLargeMessageSize),
+                                              Boolean.parseBoolean(compressLargeMessages),
+                                              Integer.parseInt(consumerWindowSize),
+                                              Integer.parseInt(consumerMaxRate),
+                                              Integer.parseInt(confirmationWindowSize),
+                                              Integer.parseInt(producerWindowSize),
+                                              Integer.parseInt(producerMaxRate),
+                                              Boolean.parseBoolean(blockOnAcknowledge),
+                                              Boolean.parseBoolean(blockOnDurableSend),
+                                              Boolean.parseBoolean(blockOnNonDurableSend),
+                                              Boolean.parseBoolean(autoGroup),
+                                              Boolean.parseBoolean(preacknowledge),
+                                              loadBalancingPolicyClassName,
+                                              Integer.parseInt(transactionBatchSize),
+                                              Integer.parseInt(dupsOkBatchSize),
+                                              Boolean.parseBoolean(useGlobalPools),
+                                              Integer.parseInt(scheduledThreadMaxPoolSize),
+                                              Integer.parseInt(threadMaxPoolSize),
+                                              Long.parseLong(retryInterval),
+                                              Double.parseDouble(retryIntervalMultiplier),
+                                              Long.parseLong(maxRetryInterval),
+                                              Integer.parseInt(reconnectAttempts),
+                                              Boolean.parseBoolean(failoverOnInitialConnection),
+                                              groupId);
+      //Boolean.parseBoolean(cacheLargeMessagesClient));
       managementSession.start();
       ClientMessage reply = requestor.request(managementMessage);
       if (ManagementHelper.hasOperationSucceeded(reply))

@@ -13,14 +13,18 @@
    <packaging>jar</packaging>
    <name>HornetQ Core Client</name>
 
+   <properties>
+      <hornetq.basedir>${project.parent.basedir}</hornetq.basedir>
+   </properties>
+
    <dependencies>
       <dependency>
-          <groupId>org.jboss.logging</groupId>
-          <artifactId>jboss-logging-processor</artifactId>
+         <groupId>org.jboss.logging</groupId>
+         <artifactId>jboss-logging-processor</artifactId>
       </dependency>
       <dependency>
-          <groupId>org.jgroups</groupId>
-          <artifactId>jgroups</artifactId>
+         <groupId>org.jgroups</groupId>
+         <artifactId>jgroups</artifactId>
       </dependency>
       <dependency>
          <groupId>org.hornetq</groupId>
@@ -82,10 +86,10 @@
 
    <build>
       <resources>
-        <resource>
-           <directory>src/main/resources</directory>
-           <filtering>true</filtering>
-        </resource>
+         <resource>
+            <directory>src/main/resources</directory>
+            <filtering>true</filtering>
+         </resource>
       </resources>
       <plugins>
          <plugin>
