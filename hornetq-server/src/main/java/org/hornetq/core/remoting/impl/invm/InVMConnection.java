@@ -25,6 +25,7 @@ import org.hornetq.api.core.HornetQInterruptedException;
 import org.hornetq.api.core.TransportConfiguration;
 import org.hornetq.core.security.HornetQPrincipal;
 import org.hornetq.core.server.HornetQServerLogger;
+import org.hornetq.spi.core.protocol.RemotingConnection;
 import org.hornetq.spi.core.remoting.BufferHandler;
 import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.spi.core.remoting.ConnectionLifeCycleListener;
@@ -58,6 +59,8 @@ public class InVMConnection implements Connection
    private volatile boolean closing;
 
    private final HornetQPrincipal defaultHornetQPrincipal;
+
+   private RemotingConnection protocolConnection;
 
    public InVMConnection(final int serverID,
                          final BufferHandler handler,
@@ -95,6 +98,18 @@ public class InVMConnection implements Connection
 
       this.defaultHornetQPrincipal = defaultHornetQPrincipal;
    }
+
+   public RemotingConnection getProtocolConnection()
+   {
+      return this.protocolConnection;
+   }
+
+   public void setProtocolConnection(RemotingConnection connection)
+   {
+      this.protocolConnection = connection;
+   }
+
+
 
    public void close()
    {

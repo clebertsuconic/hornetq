@@ -127,6 +127,7 @@ public class ProtonProducer implements ProtonDeliveryHandler
          }
          try
          {
+            // TODO it's better to look for the address instead!!!!! ... through bindings... etc...
             QueueQueryResult queryResult = protonSession.getServerSession().executeQueueQuery(new SimpleString(address));
             if (!queryResult.isExists())
             {

@@ -45,8 +45,6 @@ import org.hornetq.api.core.client.SessionFailureListener;
 import org.hornetq.core.client.HornetQClientLogger;
 import org.hornetq.core.client.HornetQClientMessageBundle;
 import org.hornetq.core.protocol.core.CoreRemotingConnection;
-import org.hornetq.core.protocol.core.impl.HornetQClientProtocolManager;
-import org.hornetq.core.protocol.core.impl.PacketDecoder;
 import org.hornetq.core.remoting.FailureListener;
 import org.hornetq.core.server.HornetQComponent;
 import org.hornetq.spi.core.protocol.RemotingConnection;
@@ -56,7 +54,7 @@ import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.spi.core.remoting.ConnectionLifeCycleListener;
 import org.hornetq.spi.core.remoting.Connector;
 import org.hornetq.spi.core.remoting.ConnectorFactory;
-import org.hornetq.spi.core.remoting.ProtocolResponseHandler;
+import org.hornetq.spi.core.remoting.TopologyResponseHandler;
 import org.hornetq.spi.core.remoting.SessionContext;
 import org.hornetq.utils.ClassloadingUtil;
 import org.hornetq.utils.ConcurrentHashSet;
@@ -73,11 +71,6 @@ import org.hornetq.utils.UUIDGenerator;
 
 public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, ConnectionLifeCycleListener
 {
-
-
-   // TODO use the factory here
-   protected ClientProtocolManager clientProtocolManager = new HornetQClientProtocolManager(this);
-
    // Constants
    // ------------------------------------------------------------------------------------
 
@@ -89,6 +82,8 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
    // -----------------------------------------------------------------------------------
 
    private final ServerLocatorInternal serverLocator;
+
+   private final ClientProtocolManager clientProtocolManager;
 
    private TransportConfiguration connectorConfig;
 
@@ -173,12 +168,15 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                                    final Executor threadPool,
                                    final ScheduledExecutorService scheduledThreadPool,
                                    final List<Interceptor> incomingInterceptors,
-                                   final List<Interceptor> outgoingInterceptors,
-                                   PacketDecoder packetDecoder)
+                                   final List<Interceptor> outgoingInterceptors)
    {
       createTrace = new Exception();
 
       this.serverLocator = serverLocator;
+
+      this.clientProtocolManager = serverLocator.newProtocolManager();
+
+      this.clientProtocolManager.setSessionFactory(this);
 
       this.connectorConfig = connectorConfig;
 
@@ -226,10 +224,6 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
       this.outgoingInterceptors = outgoingInterceptors;
 
       confirmationWindowWarning = new ConfirmationWindowWarning(serverLocator.getConfirmationWindowSize() < 0);
-
-
-      // TODO : Get rid of this / encapsulate it through the ClientProtocolManager (create a ExchangeServerProtocol for instance)
-      ((HornetQClientProtocolManager) clientProtocolManager).replacePacketDecoder(packetDecoder);
 
    }
 
@@ -281,7 +275,8 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                                                            this,
                                                            closeExecutor,
                                                            threadPool,
-                                                           scheduledThreadPool);
+                                                           scheduledThreadPool,
+                                                           clientProtocolManager);
       }
 
       if (localConnector.isEquivalent(live.getParams()) && backUp != null && !localConnector.isEquivalent(backUp.getParams()))
@@ -780,8 +775,6 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                                                             orderedExecutorFactory.getExecutor(),
                                                             orderedExecutorFactory.getExecutor());
 
-      context.setSession(session);
-
       synchronized (sessions)
       {
          if (closed || !clientProtocolManager.isAlive())
@@ -1242,7 +1235,8 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                                               this,
                                               closeExecutor,
                                               threadPool,
-                                              scheduledThreadPool);
+                                              scheduledThreadPool,
+                                              clientProtocolManager);
    }
 
    private void checkTransportKeys(final ConnectorFactory factory, final Map<String, Object> params)
@@ -1508,7 +1502,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
       RemotingConnection newConnection = clientProtocolManager.connect(transportConnection, callTimeout,
                                                                        callFailoverTimeout, incomingInterceptors,
                                                                        outgoingInterceptors,
-                                                                       new SessionFactoryProtocolHandler());
+                                                                       new SessionFactoryTopologyHandler());
 
       newConnection.addFailureListener(new DelegatingFailureListener(newConnection.getID()));
 
@@ -1540,7 +1534,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
    }
 
 
-   class SessionFactoryProtocolHandler implements ProtocolResponseHandler
+   class SessionFactoryTopologyHandler implements TopologyResponseHandler
    {
 
       @Override

@@ -13,16 +13,14 @@
 
 package org.hornetq.core.protocol.proton;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Stack;
 
 import org.apache.qpid.proton.amqp.transaction.Coordinator;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
-import org.apache.qpid.proton.engine.impl.TransportImpl;
 import org.hornetq.api.core.SimpleString;
 import org.hornetq.api.core.client.HornetQClient;
 import org.hornetq.core.persistence.OperationContext;
@@ -47,8 +45,6 @@ public class ProtonSession implements SessionCallback
 
    private final HornetQServer server;
 
-   private final TransportImpl protonTransport;
-
    private final ProtonProtocolManager protonProtocolManager;
 
    private ServerSession serverSession;
@@ -56,11 +52,11 @@ public class ProtonSession implements SessionCallback
    private OperationContext context;
 
    //todo make this configurable
-   private int tagCacheSize = 1000;
+   private int tagCacheSize = 500;
 
    private long currentTag = 0;
 
-   private final List<byte[]> tagCache = new ArrayList<byte[]>();
+   private final Stack<byte[]> tagCache = new Stack<>();
 
    private Map<Object, ProtonProducer> producers = new HashMap<Object, ProtonProducer>();
 
@@ -68,13 +64,12 @@ public class ProtonSession implements SessionCallback
 
    private boolean closed = false;
 
-   public ProtonSession(String name, ProtonRemotingConnection connection, ProtonProtocolManager protonProtocolManager, OperationContext operationContext, HornetQServer server, TransportImpl protonTransport)
+   public ProtonSession(String name, ProtonRemotingConnection connection, ProtonProtocolManager protonProtocolManager, OperationContext operationContext, HornetQServer server)
    {
       this.name = name;
       this.connection = connection;
       context = operationContext;
       this.server = server;
-      this.protonTransport = protonTransport;
       this.protonProtocolManager = protonProtocolManager;
    }
 
@@ -178,7 +173,6 @@ public class ProtonSession implements SessionCallback
             protonConsumer.getSender().setTarget(null);
             protonConsumer.getSender().setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
          }
-         connection.write();
       }
    }
 
@@ -243,7 +237,7 @@ public class ProtonSession implements SessionCallback
          byte[] bytes;
          if (tagCache.size() > 0)
          {
-            bytes = tagCache.remove(0);
+            bytes = tagCache.pop();
          }
          else
          {

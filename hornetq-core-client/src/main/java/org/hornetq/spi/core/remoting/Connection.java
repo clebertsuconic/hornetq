@@ -15,6 +15,7 @@ package org.hornetq.spi.core.remoting;
 import org.hornetq.api.core.HornetQBuffer;
 import org.hornetq.api.core.TransportConfiguration;
 import org.hornetq.core.security.HornetQPrincipal;
+import org.hornetq.spi.core.protocol.RemotingConnection;
 
 /**
  * The connection used by a channel to write data to.
@@ -30,6 +31,11 @@ public interface Connection
     * @return the new buffer.
     */
    HornetQBuffer createBuffer(int size);
+
+
+   RemotingConnection getProtocolConnection();
+
+   void setProtocolConnection(RemotingConnection connection);
 
    /**
     * returns the unique id of this wire.

@@ -30,6 +30,7 @@ import org.hornetq.api.core.TransportConfiguration;
 import org.hornetq.core.buffers.impl.ChannelBufferWrapper;
 import org.hornetq.core.client.HornetQClientLogger;
 import org.hornetq.core.security.HornetQPrincipal;
+import org.hornetq.spi.core.protocol.RemotingConnection;
 import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.spi.core.remoting.ConnectionLifeCycleListener;
 import org.hornetq.spi.core.remoting.ReadyListener;
@@ -66,7 +67,9 @@ public class NettyConnection implements Connection
 
    private final Set<ReadyListener> readyListeners = new ConcurrentHashSet<ReadyListener>();
 
-   // Static --------------------------------------------------------
+   private RemotingConnection protocolConnection;
+
+// Static --------------------------------------------------------
 
    // Constructors --------------------------------------------------
 
@@ -100,6 +103,16 @@ public class NettyConnection implements Connection
    public Channel getChannel()
    {
       return channel;
+   }
+
+   public RemotingConnection getProtocolConnection()
+   {
+      return protocolConnection;
+   }
+
+   public void setProtocolConnection(RemotingConnection protocolConnection)
+   {
+      this.protocolConnection = protocolConnection;
    }
 
    public void close()
@@ -236,6 +249,7 @@ public class NettyConnection implements Connection
             boolean inEventLoop = eventLoop.inEventLoop();
             if (!inEventLoop)
             {
+               System.out.println("Writing directly");
                channel.writeAndFlush(buf, promise);
             }
             else
@@ -248,6 +262,7 @@ public class NettyConnection implements Connection
                   @Override
                   public void run()
                   {
+                     System.out.println("Writing through channel::" + buf.refCnt());
                      channel.writeAndFlush(buf, promise);
                   }
                };

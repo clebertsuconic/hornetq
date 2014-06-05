@@ -161,6 +161,8 @@ public class RemotingConnectionImpl implements CoreRemotingConnection
       this.nodeID = nodeID;
 
       this.creationTime = System.currentTimeMillis();
+
+      transportConnection.setProtocolConnection(this);
    }
 
 

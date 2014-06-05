@@ -15,7 +15,6 @@ package org.hornetq.core.protocol.proton;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.EnumSet;
 
 import io.netty.channel.ChannelPipeline;
 import org.apache.qpid.proton.amqp.Binary;
@@ -24,20 +23,15 @@ import org.apache.qpid.proton.amqp.transaction.Coordinator;
 import org.apache.qpid.proton.amqp.transaction.Declare;
 import org.apache.qpid.proton.amqp.transaction.Declared;
 import org.apache.qpid.proton.amqp.transaction.Discharge;
-import org.apache.qpid.proton.amqp.transport.AmqpError;
-import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Delivery;
-import org.apache.qpid.proton.engine.EndpointState;
 import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.impl.LinkImpl;
-import org.apache.qpid.proton.engine.impl.TransportImpl;
 import org.apache.qpid.proton.jms.EncodedMessage;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 import org.hornetq.api.core.HornetQBuffer;
 import org.hornetq.api.core.SimpleString;
-import org.hornetq.core.journal.IOAsyncTask;
 import org.hornetq.core.protocol.proton.exceptions.HornetQAMQPException;
 import org.hornetq.core.protocol.proton.exceptions.HornetQAMQPIllegalStateException;
 import org.hornetq.core.remoting.impl.netty.NettyServerConnection;
@@ -61,16 +55,6 @@ import org.hornetq.utils.UUIDGenerator;
  */
 public class ProtonProtocolManager implements ProtocolManager, NotificationListener
 {
-   public static final EnumSet<EndpointState> UNINITIALIZED = EnumSet.of(EndpointState.UNINITIALIZED);
-
-   public static final EnumSet<EndpointState> INITIALIZED = EnumSet.complementOf(UNINITIALIZED);
-
-   public static final EnumSet<EndpointState> ACTIVE = EnumSet.of(EndpointState.ACTIVE);
-
-   public static final EnumSet<EndpointState> CLOSED = EnumSet.of(EndpointState.CLOSED);
-
-   public static final EnumSet<EndpointState> ANY_ENDPOINT_STATE = EnumSet.of(EndpointState.CLOSED, EndpointState.ACTIVE, EndpointState.UNINITIALIZED);
-
    private final HornetQServer server;
 
    public ProtonProtocolManager(HornetQServer server)
@@ -81,7 +65,7 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
    @Override
    public ConnectionEntry createConnectionEntry(Acceptor acceptorUsed, Connection connection)
    {
-      ProtonRemotingConnection conn = new ProtonRemotingConnection(acceptorUsed, connection, this);
+      ProtonRemotingConnection conn = new ProtonRemotingConnection(acceptorUsed, connection, this, server.getExecutorFactory().getExecutor());
       //todo do we have a ttl?
       return new ConnectionEntry(conn, null, System.currentTimeMillis(), 1 * 60 * 1000);
    }
@@ -94,18 +78,34 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
    @Override
    public void handleBuffer(RemotingConnection connection, HornetQBuffer buffer)
    {
-      ProtonRemotingConnection protonRemotingConnection = (ProtonRemotingConnection) connection;
-      protonRemotingConnection.setDataReceived();
+//      // this is for debug only
+      int index = buffer.readerIndex();
       byte[] frame = new byte[buffer.readableBytes()];
       buffer.readBytes(frame);
 
-      protonRemotingConnection.handleFrame(frame);
+      try
+      {
+         System.err.println("Buffer Received: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+      }
+      catch (Exception e)
+      {
+         e.printStackTrace();
+      }
+      buffer.readerIndex(index);
+//
+//      // ^^^ Debug
+//
+      ProtonRemotingConnection protonRemotingConnection = (ProtonRemotingConnection) connection;
+      protonRemotingConnection.setDataReceived();
+      protonRemotingConnection.getTrio().pump(buffer.byteBuf());
+
    }
 
    @Override
    public void addChannelHandlers(ChannelPipeline pipeliner)
    {
-      //we don't need any we do our own decoding
+      // KKK - TBD
+//      pipeliner.addLast("amqp-decoder", new HornetQAMQPFrameDecoder());
    }
 
    @Override
@@ -118,7 +118,10 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
    @Override
    public void handshake(NettyServerConnection connection, HornetQBuffer buffer)
    {
-      //todo move handshake to here
+    // KKK - TBD
+//      HornetQBuffer bufferHandshake = buffer.slice(0, 8);
+//      connection.getProtocolConnection().bufferReceived(connection.getID(), buffer);
+//      buffer.readerIndex(8);
    }
 
    @Override
@@ -136,7 +139,7 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
                              final ProtonRemotingConnection connection, ProtonSession protonSession,
                              String address) throws Exception
    {
-      synchronized (connection.getDeliveryLock())
+      synchronized (connection.getTrio().getLock())
       {
          int count;
          byte[] data = new byte[1024];
@@ -149,14 +152,15 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
          // we keep reading until we get end of messages, i.e. -1
          if (count == 0)
          {
-            return;
+            // todo this is obviously incorrect, investigate return;
          }
          receiver.advance();
+
          byte[] bytes = new byte[buffer.readableBytes()];
          buffer.readBytes(bytes);
          buffer.clear();
          EncodedMessage encodedMessage = new EncodedMessage(delivery.getMessageFormat(), bytes, 0, bytes.length);
-         ServerMessage message = ProtonUtils.INBOUND.transform(connection, encodedMessage);
+         ServerMessage message = connection.getUtils().getInbound().transform(connection, encodedMessage);
          //use the address on the receiver if not null, if null let's hope it was set correctly on the message
          if (address != null)
          {
@@ -164,62 +168,90 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
          }
          //todo decide on whether to deliver direct
          protonSession.getServerSession().send(message, true);
-         server.getStorageManager().afterCompleteOperations(new IOAsyncTask()
-         {
-            @Override
-            public void done()
-            {
-               synchronized (connection.getDeliveryLock())
-               {
-                  receiver.flow(1);
-                  delivery.settle();
-               }
-            }
 
-            @Override
-            public void onError(int errorCode, String errorMessage)
-            {
-               receiver.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, errorCode + ":" + errorMessage));
-            }
-         });
+         receiver.flow(1);
+         delivery.settle();
+
+//         server.getStorageManager().afterCompleteOperations(new IOAsyncTask()
+//         {
+//            @Override
+//            public void done()
+//            {
+//               synchronized (connection.getTrio().getLock())
+//               {
+//                  receiver.flow(1);
+//                  delivery.settle();
+//                  connection.getTrio().dispatch();
+//               }
+//            }
+//
+//            @Override
+//            public void onError(int errorCode, String errorMessage)
+//            {
+//               receiver.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, errorCode + ":" + errorMessage));
+//            }
+//         });
       }
    }
 
-   public void handleDelivery(final Sender sender, byte[] tag, EncodedMessage encodedMessage, ServerMessage message, ProtonRemotingConnection connection, final boolean preSettle)
+   public void handleDelivery(final Sender sender, final byte[] tag, final EncodedMessage encodedMessage, final ServerMessage message, final ProtonRemotingConnection connection, final boolean preSettle)
    {
-      synchronized (connection.getDeliveryLock())
+      synchronized (connection.getTrio().getLock())
       {
          final Delivery delivery;
          delivery = sender.delivery(tag, 0, tag.length);
          delivery.setContext(message);
          sender.send(encodedMessage.getArray(), 0, encodedMessage.getLength());
-         server.getStorageManager().afterCompleteOperations(new IOAsyncTask()
-         {
-            @Override
-            public void done()
-            {
-               if (preSettle)
-               {
-                  delivery.settle();
-                  ((LinkImpl) sender).addCredit(1);
-               }
-               else
-               {
-                  sender.advance();
-               }
-            }
 
-            @Override
-            public void onError(int errorCode, String errorMessage)
-            {
-               sender.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, errorCode + ":" + errorMessage));
-            }
-         });
+         ((LinkImpl) sender).addCredit(1);
+
+         if (preSettle)
+         {
+            delivery.settle();
+         }
+         else
+         {
+            sender.advance();
+         }
+
+         connection.getTrio().dispatch();
       }
-      connection.write();
+//      server.getStorageManager().afterCompleteOperations(new IOAsyncTask()
+//      {
+//         @Override
+//         public void done()
+//         {
+//            synchronized (connection.getTrio().getLock())
+//            {
+//               final Delivery delivery;
+//               delivery = sender.delivery(tag, 0, tag.length);
+//               delivery.setContext(message);
+//               sender.send(encodedMessage.getArray(), 0, encodedMessage.getLength());
+//
+//               ((LinkImpl) sender).addCredit(1);
+//
+//               if (preSettle)
+//               {
+//                  delivery.settle();
+//               }
+//               else
+//               {
+//                  sender.advance();
+//               }
+//
+//               connection.getTrio().dispatch();
+//            }
+//         }
+//
+//         @Override
+//         public void onError(int errorCode, String errorMessage)
+//         {
+//            sender.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, errorCode + ":" + errorMessage));
+//         }
+//      });
    }
 
-   void handleNewLink(Link link, ProtonSession protonSession) throws HornetQAMQPException
+   void handleNewLink(Link link, ProtonSession protonSession, ProtonRemotingConnection protonConnection) throws HornetQAMQPException
    {
       link.setSource(link.getRemoteSource());
       link.setTarget(link.getRemoteTarget());
@@ -242,18 +274,22 @@ public class ProtonProtocolManager implements ProtocolManager, NotificationListe
       }
       else
       {
-         protonSession.initialise(false);
-         Sender sender = (Sender) link;
-         protonSession.addConsumer(sender);
-         sender.offer(1);
+
+         synchronized (protonConnection.getTrio().getLock())
+         {
+            protonSession.initialise(false);
+            Sender sender = (Sender) link;
+            protonSession.addConsumer(sender);
+            sender.offer(1);
+         }
       }
    }
 
-   public ProtonSession createSession(ProtonRemotingConnection protonConnection, TransportImpl protonTransport) throws HornetQAMQPException
+   public ProtonSession createSession(ProtonRemotingConnection protonConnection) throws HornetQAMQPException
    {
       String name = UUIDGenerator.getInstance().generateStringUUID();
       return new ProtonSession(name, protonConnection, this, server.getStorageManager()
-         .newContext(server.getExecutorFactory().getExecutor()), server, protonTransport);
+         .newContext(server.getExecutorFactory().getExecutor()), server);
    }
 
    void handleActiveLink(Link link) throws HornetQAMQPException

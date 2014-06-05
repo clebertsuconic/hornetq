@@ -268,6 +268,7 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
    {
       if (availableCredits != null && availableCredits.get() <= 0)
       {
+         System.err.println("No more credits!!!");
          if (HornetQServerLogger.LOGGER.isDebugEnabled())
          {
             HornetQServerLogger.LOGGER.debug(this + " is busy for the lack of credits. Current credits = " +

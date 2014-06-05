@@ -25,8 +25,6 @@ import org.hornetq.api.core.client.ClientSession;
  */
 public interface ClientConsumerInternal extends ClientConsumer
 {
-   long getID();
-
    SimpleString getQueueName();
 
    SimpleString getFilterString();

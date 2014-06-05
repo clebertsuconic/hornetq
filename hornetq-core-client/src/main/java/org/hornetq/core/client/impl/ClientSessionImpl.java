@@ -40,6 +40,7 @@ import org.hornetq.core.client.HornetQClientLogger;
 import org.hornetq.core.client.HornetQClientMessageBundle;
 import org.hornetq.core.remoting.FailureListener;
 import org.hornetq.spi.core.protocol.RemotingConnection;
+import org.hornetq.spi.core.remoting.ConsumerContext;
 import org.hornetq.spi.core.remoting.SessionContext;
 import org.hornetq.utils.ConfirmationWindowWarning;
 import org.hornetq.utils.TokenBucketLimiterImpl;
@@ -77,7 +78,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
    private final Set<ClientProducerInternal> producers = new HashSet<ClientProducerInternal>();
 
    // Consumers must be an ordered map so if we fail we recreate them in the same order with the same ids
-   private final Map<Long, ClientConsumerInternal> consumers = new LinkedHashMap<Long, ClientConsumerInternal>();
+   private final Map<ConsumerContext, ClientConsumerInternal> consumers = new LinkedHashMap<ConsumerContext, ClientConsumerInternal>();
 
    private volatile boolean closed;
 
@@ -222,6 +223,8 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
       producerCreditManager = new ClientProducerCreditManagerImpl(this, producerWindowSize);
 
       this.sessionContext = sessionContext;
+
+      sessionContext.setSession(this);
 
       confirmationWindowWarning = sessionFactory.getConfirmationWindowWarning();
    }
@@ -812,7 +815,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
    {
       synchronized (consumers)
       {
-         consumers.put(consumer.getID(), consumer);
+         consumers.put(consumer.getConsumerContext(), consumer);
       }
    }
 
@@ -828,7 +831,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
    {
       synchronized (consumers)
       {
-         consumers.remove(consumer.getID());
+         consumers.remove(consumer.getConsumerContext());
       }
    }
 
@@ -840,7 +843,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
       }
    }
 
-   public void handleReceiveMessage(final long consumerID, final ClientMessageInternal message) throws Exception
+   public void handleReceiveMessage(final ConsumerContext consumerID, final ClientMessageInternal message) throws Exception
    {
       ClientConsumerInternal consumer = getConsumer(consumerID);
 
@@ -850,7 +853,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
       }
    }
 
-   public void handleReceiveLargeMessage(final long consumerID, ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception
+   public void handleReceiveLargeMessage(final ConsumerContext consumerID, ClientLargeMessageInternal clientLargeMessage, long largeMessageSize) throws Exception
    {
       ClientConsumerInternal consumer = getConsumer(consumerID);
 
@@ -860,7 +863,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
       }
    }
 
-   public void handleReceiveContinuation(final long consumerID, byte[] chunk, int flowControlSize, boolean isContinues) throws Exception
+   public void handleReceiveContinuation(final ConsumerContext consumerID, byte[] chunk, int flowControlSize, boolean isContinues) throws Exception
    {
       ClientConsumerInternal consumer = getConsumer(consumerID);
 
@@ -871,9 +874,9 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
    }
 
    @Override
-   public void handleConsumerDisconnect(long consumerID) throws HornetQException
+   public void handleConsumerDisconnect(ConsumerContext context) throws HornetQException
    {
-      final ClientConsumerInternal consumer = getConsumer(consumerID);
+      final ClientConsumerInternal consumer = getConsumer(context);
 
       if (consumer != null)
       {
@@ -1008,7 +1011,7 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
                                                  minLargeMessageSize, xa, autoCommitSends,
                                                  autoCommitAcks, preAcknowledge, defaultAddress);
 
-                  for (Map.Entry<Long, ClientConsumerInternal> entryx : consumers.entrySet())
+                  for (Map.Entry<ConsumerContext, ClientConsumerInternal> entryx : consumers.entrySet())
                   {
 
                      ClientConsumerInternal consumerInternal = entryx.getValue();
@@ -1137,7 +1140,9 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
 
    public synchronized ClientProducerCredits getCredits(final SimpleString address, final boolean anon)
    {
-      return producerCreditManager.getCredits(address, anon);
+      ClientProducerCredits credits = producerCreditManager.getCredits(address, anon, sessionContext);
+
+      return credits;
    }
 
    public void returnCredits(final SimpleString address)
@@ -1727,15 +1732,11 @@ public final class ClientSessionImpl implements ClientSessionInternal, FailureLi
       }
    }
 
-   /**
-    * @param consumerID
-    * @return
-    */
-   private ClientConsumerInternal getConsumer(final long consumerID)
+   private ClientConsumerInternal getConsumer(final ConsumerContext consumerContext)
    {
       synchronized (consumers)
       {
-         ClientConsumerInternal consumer = consumers.get(consumerID);
+         ClientConsumerInternal consumer = consumers.get(consumerContext);
          return consumer;
       }
    }

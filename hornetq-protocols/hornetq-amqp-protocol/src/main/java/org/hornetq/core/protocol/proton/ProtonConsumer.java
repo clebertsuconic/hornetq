@@ -157,7 +157,7 @@ public class ProtonConsumer implements ProtonDeliveryHandler
    /*
    * close the session
    * */
-   public synchronized void close() throws HornetQAMQPException
+   public void close() throws HornetQAMQPException
    {
       closed = true;
       protonSession.removeConsumer(consumerID);
@@ -171,16 +171,19 @@ public class ProtonConsumer implements ProtonDeliveryHandler
    /*
    * handle an out going message from HornetQ, send via the Proton Sender
    * */
-   public synchronized int handleDelivery(ServerMessage message, int deliveryCount)
+   public int handleDelivery(ServerMessage message, int deliveryCount)
    {
+      System.out.println("Handling message " + message);
       if (closed)
       {
+         System.err.println("Message can't be delivered as it's closed");
          return 0;
       }
       if (message.containsProperty(ClientConsumerImpl.FORCED_DELIVERY_MESSAGE))
       {
          if (forcingDelivery)
          {
+            new Exception("force delivery").printStackTrace();
             sender.drained();
          }
          else
@@ -200,7 +203,15 @@ public class ProtonConsumer implements ProtonDeliveryHandler
       //we only need a tag if we are going to ack later
       byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
       //encode the message
-      EncodedMessage encodedMessage = ProtonUtils.OUTBOUND.transform(message, deliveryCount);
+      EncodedMessage encodedMessage = null;
+      try
+      {
+         encodedMessage = connection.getUtils().getOutbound().transform(message, deliveryCount);
+      }
+      catch (Throwable e)
+      {
+         e.printStackTrace();
+      }
       //now handle the delivery
       protonProtocolManager.handleDelivery(sender, tag, encodedMessage, message, connection, preSettle);
 
@@ -257,17 +268,18 @@ public class ProtonConsumer implements ProtonDeliveryHandler
                throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorCancellingMessage(message.getMessageID(), e.getMessage());
             }
          }
-
-         synchronized (connection.getDeliveryLock())
-         {
-            delivery.settle();
-         }
          //todo add tag caching
          if (!preSettle)
          {
             protonSession.replaceTag(delivery.getTag());
          }
-         sender.offer(1);
+
+         synchronized (connection.getTrio().getLock())
+         {
+            delivery.settle();
+            sender.offer(1);
+         }
+
       }
       else
       {
@@ -280,6 +292,7 @@ public class ProtonConsumer implements ProtonDeliveryHandler
    * */
    public synchronized void checkState()
    {
+      new Exception("Checkstate").printStackTrace();
       if (!forcingDelivery && receivedForcedDelivery)
       {
          try
@@ -309,6 +322,4 @@ public class ProtonConsumer implements ProtonDeliveryHandler
       }
       return sb.toString();
    }
-
-   int x = 5;
 }

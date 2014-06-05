@@ -18,13 +18,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import org.hornetq.api.core.HornetQException;
-import org.hornetq.api.core.client.HornetQClient;
 import org.hornetq.core.server.HornetQComponent;
 import org.hornetq.core.server.HornetQServerLogger;
 import org.hornetq.core.server.HornetQMessageBundle;
 import org.hornetq.spi.core.remoting.AbstractConnector;
 import org.hornetq.spi.core.remoting.Acceptor;
 import org.hornetq.spi.core.remoting.BufferHandler;
+import org.hornetq.spi.core.remoting.ClientProtocolManager;
 import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.spi.core.remoting.ConnectionLifeCycleListener;
 import org.hornetq.utils.ConfigurationHelper;
@@ -63,6 +63,8 @@ public class InVMConnector extends AbstractConnector
 
    protected final int id;
 
+   private final ClientProtocolManager protocolManager;
+
    private final BufferHandler handler;
 
    private final ConnectionLifeCycleListener listener;
@@ -81,7 +83,8 @@ public class InVMConnector extends AbstractConnector
                         final BufferHandler handler,
                         final ConnectionLifeCycleListener listener,
                         final Executor closeExecutor,
-                        final Executor threadPool)
+                        final Executor threadPool,
+                        ClientProtocolManager protocolManager)
    {
       super(configuration);
       this.listener = listener;
@@ -97,6 +100,8 @@ public class InVMConnector extends AbstractConnector
       InVMRegistry registry = InVMRegistry.instance;
 
       acceptor = registry.getAcceptor(id);
+
+      this.protocolManager = protocolManager;
    }
 
    public Acceptor getAcceptor()
@@ -180,7 +185,7 @@ public class InVMConnector extends AbstractConnector
    {
       // No acceptor on a client connection
       InVMConnection inVMConnection = new InVMConnection(id, handler, listener, serverExecutor);
-      listener.connectionCreated(null, inVMConnection, HornetQClient.DEFAULT_CORE_PROTOCOL);
+      listener.connectionCreated(null, inVMConnection, protocolManager.getName());
       return inVMConnection;
    }
 

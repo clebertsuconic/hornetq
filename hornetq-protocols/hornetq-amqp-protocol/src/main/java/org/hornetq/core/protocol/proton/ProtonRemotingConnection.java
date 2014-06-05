@@ -13,52 +13,51 @@
 
 package org.hornetq.core.protocol.proton;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.transport.AmqpError;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
-import org.apache.qpid.proton.engine.EndpointState;
-import org.apache.qpid.proton.engine.Sasl;
+import org.apache.qpid.proton.engine.Delivery;
+import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Session;
-import org.apache.qpid.proton.engine.impl.ConnectionImpl;
-import org.apache.qpid.proton.engine.impl.DeliveryImpl;
-import org.apache.qpid.proton.engine.impl.LinkImpl;
-import org.apache.qpid.proton.engine.impl.TransportImpl;
+import org.apache.qpid.proton.engine.Transport;
 import org.hornetq.api.core.HornetQBuffer;
 import org.hornetq.api.core.HornetQException;
 import org.hornetq.api.core.TransportConfiguration;
+import org.hornetq.core.buffers.impl.ChannelBufferWrapper;
+import org.hornetq.core.protocol.proton.client.MessageCreator;
 import org.hornetq.core.protocol.proton.exceptions.HornetQAMQPException;
+import org.hornetq.core.protocol.proton.util.ProtonTrio;
 import org.hornetq.core.remoting.CloseListener;
 import org.hornetq.core.remoting.FailureListener;
 import org.hornetq.core.server.HornetQServerLogger;
+import org.hornetq.core.server.ServerMessage;
 import org.hornetq.core.server.impl.ServerMessageImpl;
 import org.hornetq.spi.core.protocol.RemotingConnection;
 import org.hornetq.spi.core.remoting.Acceptor;
 import org.hornetq.spi.core.remoting.Connection;
+import org.hornetq.core.protocol.proton.utils.ProtonUtils;
 
 /**
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  */
-public class ProtonRemotingConnection implements RemotingConnection
+public class ProtonRemotingConnection implements RemotingConnection, MessageCreator<ServerMessage>
 {
-   private TransportImpl protonTransport;
+   private final ProtonServerTrio trio;
 
-   private ConnectionImpl protonConnection;
+   private final Map<Object, ProtonSession> sessions = new ConcurrentHashMap<>();
 
-   private final Map<Object, ProtonSession> sessions = new HashMap<Object, ProtonSession>();
+   private final ProtonUtils<ServerMessage, ProtonRemotingConnection> utils = new ProtonUtils<>();
 
-   /*
-   * Proton is not thread safe therefore we need to make sure we aren't updating the deliveries on the connection from
-   * the input of proton transport and asynchronously back from HornetQ at the same time.
-   * (this probably needs to be fixed on Proton)
-   * */
-   private final Object deliveryLock = new Object();
 
    private boolean destroyed = false;
 
@@ -68,7 +67,7 @@ public class ProtonRemotingConnection implements RemotingConnection
 
    private final long creationTime;
 
-   private final Connection connection;
+   private final Connection remotingConnection;
 
    private final ProtonProtocolManager protonProtocolManager;
 
@@ -76,40 +75,39 @@ public class ProtonRemotingConnection implements RemotingConnection
 
    private final List<CloseListener> closeListeners = new CopyOnWriteArrayList<CloseListener>();
 
-   private boolean initialised = false;
-
-   private static final byte[] VERSION_HEADER = new byte[]{
-      'A', 'M', 'Q', 'P', 0, 1, 0, 0
-   };
-   private Sasl sasl;
-
-   private String username;
-
-   private String passcode;
-
    private boolean dataReceived;
 
-   public ProtonRemotingConnection(Acceptor acceptorUsed, Connection connection, ProtonProtocolManager protonProtocolManager)
+   public ProtonRemotingConnection(Acceptor acceptorUsed, Connection connection, ProtonProtocolManager protonProtocolManager, Executor executor)
    {
       this.protonProtocolManager = protonProtocolManager;
 
-      this.connection = connection;
+      this.remotingConnection = connection;
 
       this.creationTime = System.currentTimeMillis();
 
       this.acceptorUsed = acceptorUsed;
 
-      this.protonTransport = new TransportImpl();
+      connection.setProtocolConnection(this);
 
-      this.protonConnection = new ConnectionImpl();
+      trio = new ProtonServerTrio(executor);
 
-      protonTransport.bind(protonConnection);
+      trio.createServerSasl("PLAIN");
+   }
+
+   public ProtonUtils<ServerMessage, ProtonRemotingConnection> getUtils()
+   {
+      return utils;
+   }
+
+   public ProtonTrio getTrio()
+   {
+      return trio;
    }
 
    @Override
    public Object getID()
    {
-      return connection.getID();
+      return remotingConnection.getID();
    }
 
    @Override
@@ -121,7 +119,7 @@ public class ProtonRemotingConnection implements RemotingConnection
    @Override
    public String getRemoteAddress()
    {
-      return connection.getRemoteAddress();
+      return remotingConnection.getRemoteAddress();
    }
 
    @Override
@@ -214,7 +212,7 @@ public class ProtonRemotingConnection implements RemotingConnection
    @Override
    public HornetQBuffer createBuffer(int size)
    {
-      return connection.createBuffer(size);
+      return remotingConnection.createBuffer(size);
    }
 
    @Override
@@ -228,7 +226,7 @@ public class ProtonRemotingConnection implements RemotingConnection
 
       destroyed = true;
 
-      connection.close();
+      remotingConnection.close();
    }
 
    @Override
@@ -236,18 +234,15 @@ public class ProtonRemotingConnection implements RemotingConnection
    {
       destroyed = true;
 
-      connection.close();
+      remotingConnection.close();
 
-      synchronized (deliveryLock)
-      {
-         callClosingListeners();
-      }
+      callClosingListeners();
    }
 
    @Override
    public Connection getTransportConnection()
    {
-      return connection;
+      return remotingConnection;
    }
 
    @Override
@@ -293,127 +288,20 @@ public class ProtonRemotingConnection implements RemotingConnection
    @Override
    public void bufferReceived(Object connectionID, HornetQBuffer buffer)
    {
-      if (initialised)
-      {
-         protonProtocolManager.handleBuffer(this, buffer);
-      }
-      else
-      {
-         byte[] prot = new byte[4];
-         buffer.readBytes(prot);
-         String headerProt = new String(prot);
-         checkProtocol(headerProt);
-         int protocolId = buffer.readByte();
-         int major = buffer.readByte();
-         int minor = buffer.readByte();
-         int revision = buffer.readByte();
-         if (!(checkVersion(major, minor, revision) && checkProtocol(headerProt)))
-         {
-            protonTransport.close();
-            protonConnection.close();
-            write();
-            destroy();
-            return;
-         }
-         if (protocolId == 3)
-         {
-            sasl = protonTransport.sasl();
-            sasl.setMechanisms(new String[]{"ANONYMOUS", "PLAIN"});
-            sasl.server();
-         }
-
-         ///its only 8 bytes, there's always going to always be enough in the buffer, isn't there?
-         protonTransport.input(VERSION_HEADER, 0, VERSION_HEADER.length);
-
-         write();
-
-         initialised = true;
-
-         if (buffer.readableBytes() > 0)
-         {
-            protonProtocolManager.handleBuffer(this, buffer.copy(buffer.readerIndex(), buffer.readableBytes()));
-         }
-
-         if (sasl != null)
-         {
-            if (sasl.getRemoteMechanisms().length > 0)
-            {
-               if ("PLAIN".equals(sasl.getRemoteMechanisms()[0]))
-               {
-                  byte[] data = new byte[sasl.pending()];
-                  sasl.recv(data, 0, data.length);
-                  sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
-                  sasl = null;
-               }
-               else if ("ANONYMOUS".equals(sasl.getRemoteMechanisms()[0]))
-               {
-                  sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
-                  sasl = null;
-               }
-            }
-
-            write();
-         }
-      }
-   }
-
-   private boolean checkProtocol(String headerProt)
-   {
-      boolean ok = "AMQP".equals(headerProt);
-      if (!ok)
-      {
-         protonConnection.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, "Unknown Protocol " + headerProt));
-      }
-      return ok;
-   }
-
-   private boolean checkVersion(int major, int minor, int revision)
-   {
-      if (major < 1)
-      {
-         protonConnection.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE,
-                                                          "Version not supported " + major + "." + minor + "." + revision));
-         return false;
-      }
-      return true;
-   }
-
-   void write()
-   {
-      synchronized (deliveryLock)
-      {
-         int size = 1024 * 64;
-         byte[] data = new byte[size];
-         boolean done = false;
-         while (!done)
-         {
-            int count = protonTransport.output(data, 0, size);
-            if (count > 0)
-            {
-               final HornetQBuffer buffer;
-               buffer = connection.createBuffer(count);
-               buffer.writeBytes(data, 0, count);
-               connection.write(buffer);
-            }
-            else
-            {
-               done = true;
-            }
-         }
-      }
+      protonProtocolManager.handleBuffer(this, buffer);
    }
 
    public String getLogin()
    {
-      return username;
+      return trio.getUsername();
    }
 
    public String getPasscode()
    {
-      return passcode;
+      return trio.getPassword();
    }
 
-   public ServerMessageImpl createServerMessage()
+   public ServerMessageImpl createMessage()
    {
       return protonProtocolManager.createServerMessage();
    }
@@ -423,195 +311,12 @@ public class ProtonRemotingConnection implements RemotingConnection
       dataReceived = true;
    }
 
-   public void handleFrame(byte[] frame)
-   {
-      int read = 0;
-      while (read < frame.length)
-      {
-         synchronized (deliveryLock)
-         {
-            try
-            {
-               int count = protonTransport.input(frame, read, frame.length - read);
-               read += count;
-            }
-            catch (Exception e)
-            {
-               protonTransport.setCondition(new ErrorCondition(AmqpError.DECODE_ERROR, HornetQAMQPProtocolMessageBundle.BUNDLE.decodeError()));
-               write();
-               protonConnection.close();
-               return;
-            }
-         }
-
-         if (sasl != null)
-         {
-            if (sasl.getRemoteMechanisms().length > 0)
-            {
-               if ("PLAIN".equals(sasl.getRemoteMechanisms()[0]))
-               {
-                  byte[] data = new byte[sasl.pending()];
-                  sasl.recv(data, 0, data.length);
-                  setUserPass(data);
-                  sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
-                  sasl = null;
-               }
-               else if ("ANONYMOUS".equals(sasl.getRemoteMechanisms()[0]))
-               {
-                  sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
-                  sasl = null;
-               }
-            }
-         }
-
-         //handle opening of connection
-         if (protonConnection.getLocalState() == EndpointState.UNINITIALIZED && protonConnection.getRemoteState() != EndpointState.UNINITIALIZED)
-         {
-            clientId = protonConnection.getRemoteContainer();
-            protonConnection.open();
-            write();
-         }
-
-         //handle any new sessions
-         Session session = protonConnection.sessionHead(ProtonProtocolManager.UNINITIALIZED, ProtonProtocolManager.INITIALIZED);
-         while (session != null)
-         {
-            try
-            {
-               ProtonSession protonSession = getSession(session);
-               session.setContext(protonSession);
-               session.open();
-
-            }
-            catch (HornetQAMQPException e)
-            {
-               protonConnection.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
-               session.close();
-            }
-            write();
-            session = protonConnection.sessionHead(ProtonProtocolManager.UNINITIALIZED, ProtonProtocolManager.INITIALIZED);
-         }
-
-         //handle new link (producer or consumer
-         LinkImpl link = (LinkImpl) protonConnection.linkHead(ProtonProtocolManager.UNINITIALIZED, ProtonProtocolManager.INITIALIZED);
-         while (link != null)
-         {
-            try
-            {
-               protonProtocolManager.handleNewLink(link, getSession(link.getSession()));
-            }
-            catch (HornetQAMQPException e)
-            {
-               link.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
-               link.close();
-            }
-            link = (LinkImpl) protonConnection.linkHead(ProtonProtocolManager.UNINITIALIZED, ProtonProtocolManager.INITIALIZED);
-         }
-
-         //handle any deliveries
-         DeliveryImpl delivery;
-
-         Iterator<DeliveryImpl> iterator = protonConnection.getWorkSequence();
-
-         while (iterator.hasNext())
-         {
-            delivery = iterator.next();
-            ProtonDeliveryHandler handler = (ProtonDeliveryHandler) delivery.getLink().getContext();
-            try
-            {
-               handler.onMessage(delivery);
-            }
-            catch (HornetQAMQPException e)
-            {
-               delivery.getLink().setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
-            }
-         }
-
-         link = (LinkImpl) protonConnection.linkHead(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.ANY_ENDPOINT_STATE);
-         while (link != null)
-         {
-            try
-            {
-               protonProtocolManager.handleActiveLink(link);
-            }
-            catch (HornetQAMQPException e)
-            {
-               link.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
-            }
-            link = (LinkImpl) link.next(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.ANY_ENDPOINT_STATE);
-         }
-
-         link = (LinkImpl) protonConnection.linkHead(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.CLOSED);
-         while (link != null)
-         {
-            try
-            {
-               ((ProtonDeliveryHandler) link.getContext()).close();
-            }
-            catch (HornetQAMQPException e)
-            {
-               link.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
-            }
-            link.close();
-
-            link = (LinkImpl) link.next(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.CLOSED);
-         }
-
-         session = protonConnection.sessionHead(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.CLOSED);
-         while (session != null)
-         {
-            ProtonSession protonSession = (ProtonSession) session.getContext();
-            protonSession.close();
-            sessions.remove(session);
-            session.close();
-            session = session.next(ProtonProtocolManager.ACTIVE, ProtonProtocolManager.CLOSED);
-         }
-
-         if (protonConnection.getLocalState() == EndpointState.ACTIVE && protonConnection.getRemoteState() == EndpointState.CLOSED)
-         {
-            for (ProtonSession protonSession : sessions.values())
-            {
-               protonSession.close();
-            }
-            sessions.clear();
-            protonConnection.close();
-            write();
-            destroy();
-         }
-
-         write();
-      }
-   }
-
-   private void setUserPass(byte[] data)
-   {
-      String bytes = new String(data);
-      String[] credentials = bytes.split(Character.toString((char) 0));
-      int offSet = 0;
-      if (credentials.length > 0)
-      {
-         if (credentials[0].length() == 0)
-         {
-            offSet = 1;
-         }
-
-         if (credentials.length >= offSet)
-         {
-            username = credentials[offSet];
-         }
-         if (credentials.length >= (offSet + 1))
-         {
-            passcode = credentials[offSet + 1];
-         }
-      }
-   }
-
    private ProtonSession getSession(Session realSession) throws HornetQAMQPException
    {
       ProtonSession protonSession = sessions.get(realSession);
       if (protonSession == null)
       {
-         protonSession = protonProtocolManager.createSession(this, protonTransport);
+         protonSession = protonProtocolManager.createSession(this);
          sessions.put(realSession, protonSession);
       }
       return protonSession;
@@ -658,8 +363,174 @@ public class ProtonRemotingConnection implements RemotingConnection
       }
    }
 
-   public Object getDeliveryLock()
+   class ProtonServerTrio extends ProtonTrio
    {
-      return deliveryLock;
+
+      public ProtonServerTrio(Executor executor)
+      {
+         super(executor);
+      }
+
+      @Override
+      protected void connectionOpened(org.apache.qpid.proton.engine.Connection connection)
+      {
+
+      }
+
+      @Override
+      protected void connectionClosed(org.apache.qpid.proton.engine.Connection connection)
+      {
+         for (ProtonSession protonSession : sessions.values())
+         {
+            protonSession.close();
+         }
+         sessions.clear();
+         // We must force write the channel before we actually destroy the connection
+         onTransport(transport);
+         destroy();
+
+      }
+
+      @Override
+      protected void sessionOpened(Session session)
+      {
+         try
+         {
+            ProtonSession protonSession = getSession(session);
+            session.setContext(protonSession);
+         }
+         catch (HornetQException e)
+         {
+            session.close();
+            transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
+         }
+
+      }
+
+      @Override
+      protected void sessionClosed(Session session)
+      {
+         ProtonSession protonSession = (ProtonSession) session.getContext();
+         protonSession.close();
+         sessions.remove(session);
+         session.close();
+      }
+
+      @Override
+      protected void linkOpened(Link link)
+      {
+         try
+         {
+            protonProtocolManager.handleNewLink(link, getSession(link.getSession()), ProtonRemotingConnection.this);
+         }
+         catch (HornetQException e)
+         {
+            link.close();
+            transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
+         }
+      }
+
+      @Override
+      protected void linkClosed(Link link)
+      {
+         try
+         {
+            ((ProtonDeliveryHandler) link.getContext()).close();
+         }
+         catch (HornetQException e)
+         {
+            link.close();
+            transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
+         }
+
+      }
+
+      @Override
+      protected void onDelivery(Delivery delivery)
+      {
+         ProtonDeliveryHandler handler = (ProtonDeliveryHandler) delivery.getLink().getContext();
+         try
+         {
+            if (handler != null)
+            {
+               handler.onMessage(delivery);
+            }
+            else
+            {
+               // TODO: logs
+
+               System.err.println("Handler is null, can't delivery " + delivery);
+            }
+         }
+         catch (HornetQAMQPException e)
+         {
+            delivery.getLink().setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
+         }
+      }
+
+
+      @Override
+      protected void linkActive(Link link)
+      {
+         try
+         {
+            protonProtocolManager.handleActiveLink(link);
+         }
+         catch (HornetQAMQPException e)
+         {
+            link.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
+         }
+      }
+
+
+      @Override
+      protected void onTransport(Transport transport)
+      {
+         ByteBuf bytes = getPooledNettyBytes(transport);
+
+         // debug output
+         int originalRead = bytes.readerIndex();
+         byte[] frame = new byte[bytes.writerIndex()];
+         bytes.getBytes(0, frame);
+         try
+         {
+            System.err.println("Buffer outgoing: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+         }
+         catch (Exception e)
+         {
+            e.printStackTrace();
+         }
+         bytes.readerIndex(originalRead);
+         // ^^ debug ouptut
+
+
+         if (bytes != null)
+         {
+            // null means nothing to be written
+            remotingConnection.write(new ChannelBufferWrapper(bytes));
+         }
+      }
+
+      private ByteBuf getPooledNettyBytes(Transport transport)
+      {
+         int size = transport.pending();
+
+         if (size == 0)
+         {
+            return null;
+         }
+//
+         ByteBuf buffer = PooledByteBufAllocator.DEFAULT.buffer(size);
+
+         ByteBuffer bufferInput = transport.head();
+
+         buffer.writeBytes(bufferInput);
+
+         transport.pop(size);
+
+         return buffer;
+      }
+
    }
+
 }
