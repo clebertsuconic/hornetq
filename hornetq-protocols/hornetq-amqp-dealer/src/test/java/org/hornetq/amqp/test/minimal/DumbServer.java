@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.test.dumbserver;
+package org.hornetq.amqp.test.minimal;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +32,11 @@ public class DumbServer
       if (q == null)
       {
          q = new LinkedBlockingDeque();
-         q = maps.putIfAbsent(name, q);
+         BlockingDeque oldValue = maps.putIfAbsent(name, q);
+         if (oldValue != null)
+         {
+            q = oldValue;
+         }
       }
       return q;
    }

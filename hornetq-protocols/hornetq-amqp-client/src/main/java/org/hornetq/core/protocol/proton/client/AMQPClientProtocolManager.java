@@ -154,4 +154,10 @@ public class AMQPClientProtocolManager implements ClientProtocolManager
    {
       return "AMQP1_0";
    }
+
+   @Override
+   public boolean checkForFailover(String liveNodeID) throws HornetQException
+   {
+      return true;
+   }
 }

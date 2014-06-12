@@ -218,7 +218,7 @@ public class BackupManager implements HornetQComponent
             backupServerLocator.setIdentity("backupLocatorFor='" + server + "'");
             backupServerLocator.setReconnectAttempts(-1);
             backupServerLocator.setInitialConnectAttempts(-1);
-            backupServerLocator.setProtocolManagerFactory(new HornetQReplicationProtocolManagerFactory());
+            backupServerLocator.setProtocolManagerFactory(new HornetQServerSideProtocolManagerFactory());
          }
       }
 
@@ -371,7 +371,7 @@ public class BackupManager implements HornetQComponent
             }
             ServerLocatorImpl locator = new ServerLocatorImpl(topology, true, tcConfigs);
             locator.setClusterConnection(true);
-            locator.setProtocolManagerFactory(new HornetQReplicationProtocolManagerFactory());
+            locator.setProtocolManagerFactory(new HornetQServerSideProtocolManagerFactory());
             return locator;
          }
          return null;

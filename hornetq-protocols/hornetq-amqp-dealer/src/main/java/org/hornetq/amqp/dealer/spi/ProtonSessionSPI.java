@@ -13,19 +13,22 @@
 
 package org.hornetq.amqp.dealer.spi;
 
+import java.nio.ByteBuffer;
+
 import io.netty.buffer.ByteBuf;
 import org.apache.qpid.proton.amqp.Binary;
-import org.apache.qpid.proton.jms.EncodedMessage;
-import org.hornetq.amqp.dealer.ProtonSession;
+import org.hornetq.amqp.dealer.impl.ProtonSessionImpl;
+import org.hornetq.amqp.dealer.util.ProtonServerMessage;
 
 /**
+ * These are methods where the Proton Plug component will call your server
  * @author Clebert Suconic
  */
 
 public interface ProtonSessionSPI
 {
 
-   void init(ProtonSession session, String user, String passcode, boolean transacted);
+   void init(ProtonSessionImpl session, String user, String passcode, boolean transacted);
 
    void start();
 
@@ -40,13 +43,13 @@ public interface ProtonSessionSPI
    void closeConsumer(Object brokerConsumer);
 
    // This one can be a lot improved
-   EncodedMessage encodeMessage(Object message, int deliveryCount);
-
-   ByteBuf createBuffer(int size);
+   ProtonServerMessage encodeMessage(Object message, int deliveryCount);
 
    ByteBuf pooledBuffer(int size);
 
    Binary getCurrentTXID();
+
+   String tempQueueName();
 
    void commitCurrentTX();
 
@@ -70,6 +73,6 @@ public interface ProtonSessionSPI
    void resumeDelivery(Object consumer);
 
 
-   void serverSend(EncodedMessage encodedMessage, String address);
+   void serverSend(String address, int messageFormat, ByteBuffer messageEncoded);
 
 }

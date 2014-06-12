@@ -131,14 +131,16 @@ public abstract class ProtonTrio
             }
 
             checkSASL();
+            dispatch();
 
             return true;
 
          }
       }
-      finally
+      catch (Throwable e)
       {
-         dispatch();
+         e.printStackTrace();
+         return false;
       }
    }
 

@@ -488,24 +488,27 @@ public class ProtonRemotingConnection implements RemotingConnection, MessageCrea
       {
          ByteBuf bytes = getPooledNettyBytes(transport);
 
-         // debug output
-         int originalRead = bytes.readerIndex();
-         byte[] frame = new byte[bytes.writerIndex()];
-         bytes.getBytes(0, frame);
-         try
-         {
-            System.err.println("Buffer outgoing: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
-         }
-         catch (Exception e)
-         {
-            e.printStackTrace();
-         }
-         bytes.readerIndex(originalRead);
-         // ^^ debug ouptut
-
 
          if (bytes != null)
          {
+
+            // debug output
+            int originalRead = bytes.readerIndex();
+            byte[] frame = new byte[bytes.writerIndex()];
+            bytes.getBytes(0, frame);
+            try
+            {
+               System.err.println("Buffer outgoing: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+            }
+            catch (Exception e)
+            {
+               e.printStackTrace();
+            }
+            bytes.readerIndex(originalRead);
+            // ^^ debug ouptut
+
+
+
             // null means nothing to be written
             remotingConnection.write(new ChannelBufferWrapper(bytes));
          }

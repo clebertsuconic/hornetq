@@ -21,7 +21,7 @@ import org.hornetq.api.core.client.ClientProducer;
 import org.hornetq.api.core.client.ClientSession;
 import org.hornetq.api.core.client.ClientSessionFactory;
 import org.hornetq.api.core.client.ServerLocator;
-import org.hornetq.amqp.dealer.client.AMQPClientProtocolManagerFactory;
+import org.hornetq.core.protocol.proton.client.AMQPClientProtocolManagerFactory;
 import org.hornetq.core.server.HornetQServer;
 import org.hornetq.tests.util.ServiceTestBase;
 import org.junit.Before;

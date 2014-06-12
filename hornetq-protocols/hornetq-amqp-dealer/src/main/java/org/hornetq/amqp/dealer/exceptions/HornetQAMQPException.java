@@ -14,13 +14,12 @@
 package org.hornetq.amqp.dealer.exceptions;
 
 import org.apache.qpid.proton.amqp.Symbol;
-import org.hornetq.api.core.HornetQException;
 
 /**
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  *         6/6/13
  */
-public class HornetQAMQPException extends HornetQException
+public class HornetQAMQPException extends Exception
 {
 
    private static final String ERROR_PREFIX = "amqp:";

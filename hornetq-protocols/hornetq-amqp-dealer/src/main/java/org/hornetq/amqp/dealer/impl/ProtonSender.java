@@ -11,10 +11,11 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.impl;
 
 import java.util.Map;
 
+import io.netty.buffer.ByteBuf;
 import org.apache.qpid.proton.amqp.DescribedType;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
@@ -26,27 +27,28 @@ import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.impl.LinkImpl;
-import org.apache.qpid.proton.jms.EncodedMessage;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
+import org.hornetq.amqp.dealer.util.NettyWritable;
+import org.hornetq.amqp.dealer.util.ProtonServerMessage;
 
 /**
  * A this is a wrapper around a HornetQ ServerConsumer for handling outgoing messages and incoming acks via a Proton Sender
  *
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  */
-public class ProtonOutbound implements ProtonDeliveryHandler
+public class ProtonSender implements ProtonDeliveryHandler
 {
    private static final Symbol SELECTOR = Symbol.getSymbol("jms-selector");
    private static final Symbol COPY = Symbol.valueOf("copy");
-   private final ProtonSession protonSession;
+   private final ProtonSessionImpl protonSession;
    private final Sender sender;
-   private final ProtonRemotingConnection connection;
+   private final ProtonConnectionImpl connection;
    private Object brokerConsumer;
    private boolean closed = false;
    private final ProtonSessionSPI sessionSPI;
 
-   public ProtonOutbound(ProtonRemotingConnection connection, Sender sender, ProtonSession protonSession, ProtonSessionSPI server)
+   public ProtonSender(ProtonConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
    {
       this.connection = connection;
       this.sender = sender;
@@ -159,7 +161,6 @@ public class ProtonOutbound implements ProtonDeliveryHandler
    * */
    public int handleDelivery(Object message, int deliveryCount)
    {
-      System.out.println("Handling message " + message);
       if (closed)
       {
          System.err.println("Message can't be delivered as it's closed");
@@ -171,41 +172,66 @@ public class ProtonOutbound implements ProtonDeliveryHandler
       //we only need a tag if we are going to ack later
       byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
       //encode the message
-      EncodedMessage encodedMessage = null;
+      ProtonServerMessage serverMessage = null;
       try
       {
          // This can be done a lot better here
-         encodedMessage = sessionSPI.encodeMessage(message, deliveryCount);
+         serverMessage = sessionSPI.encodeMessage(message, deliveryCount);
       }
       catch (Throwable e)
       {
          e.printStackTrace();
       }
 
-
-      synchronized (connection.getTrio().getLock())
+      ByteBuf nettyBuffer = sessionSPI.pooledBuffer(1024 * 1024);
+      try
       {
-         final Delivery delivery;
-         delivery = sender.delivery(tag, 0, tag.length);
-         delivery.setContext(message);
-         sender.send(encodedMessage.getArray(), 0, encodedMessage.getLength());
+         serverMessage.encode(new NettyWritable(nettyBuffer));
 
-         ((LinkImpl) sender).addCredit(1);
+         int size;
 
-         if (preSettle)
+         synchronized (connection.getTrio().getLock())
          {
-            delivery.settle();
-         }
-         else
-         {
-            sender.advance();
+            final Delivery delivery;
+            delivery = sender.delivery(tag, 0, tag.length);
+            delivery.setContext(message);
+
+            byte[] sendBuffer = new byte[1024];
+
+            int position = nettyBuffer.readerIndex();
+            size = nettyBuffer.writerIndex();
+            while (position < size)
+            {
+               int bytestoRead = Math.min(sendBuffer.length, size - position);
+
+               nettyBuffer.getBytes(position, sendBuffer, 0, bytestoRead);
+
+               sender.send(sendBuffer, 0, bytestoRead);
+
+               position += bytestoRead;
+            }
+
+            ((LinkImpl) sender).addCredit(1);
+
+            if (preSettle)
+            {
+               delivery.settle();
+            }
+            else
+            {
+               sender.advance();
+            }
+
+            connection.getTrio().dispatch();
          }
 
-         connection.getTrio().dispatch();
+
+         return size;
       }
-
-
-      return encodedMessage.getLength();
+      finally
+      {
+         nettyBuffer.release();
+      }
    }
 
    @Override

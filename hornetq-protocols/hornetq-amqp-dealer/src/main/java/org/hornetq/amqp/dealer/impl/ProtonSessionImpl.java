@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.impl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,23 +28,23 @@ import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  *         4/10/13
  */
-public class ProtonSession
+public class ProtonSessionImpl
 {
-   private final ProtonRemotingConnection connection;
+   private final ProtonConnectionImpl connection;
 
    private final ProtonSessionSPI sessionSPI;
 
    private long currentTag = 0;
 
-   private Map<Object, ProtonInbound> producers = new HashMap<Object, ProtonInbound>();
+   private Map<Object, ProtonReceiver> producers = new HashMap<Object, ProtonReceiver>();
 
-   private Map<Object, ProtonOutbound> consumers = new HashMap<Object, ProtonOutbound>();
+   private Map<Object, ProtonSender> consumers = new HashMap<Object, ProtonSender>();
 
    private boolean closed = false;
 
    private boolean initialized = false;
 
-   public ProtonSession(ProtonSessionSPI sessionSPI, ProtonRemotingConnection connection)
+   public ProtonSessionImpl(ProtonSessionSPI sessionSPI, ProtonConnectionImpl connection)
    {
       this.connection = connection;
       this.sessionSPI = sessionSPI;
@@ -72,7 +72,7 @@ public class ProtonSession
 
    public int deliverMessage(Object message, Object consumer, int deliveryCount)
    {
-      ProtonOutbound protonConsumer = consumers.get(consumer);
+      ProtonSender protonConsumer = consumers.get(consumer);
       if (protonConsumer != null)
       {
          return protonConsumer.handleDelivery(message, deliveryCount);
@@ -82,7 +82,7 @@ public class ProtonSession
 
    public void disconnect(Object consumer, String queueName)
    {
-      ProtonOutbound protonConsumer = consumers.remove(consumer);
+      ProtonSender protonConsumer = consumers.remove(consumer);
       if (protonConsumer != null)
       {
          try
@@ -97,11 +97,11 @@ public class ProtonSession
       }
    }
 
-   public void addProducer(Receiver receiver) throws HornetQAMQPException
+   public void addReceiver(Receiver receiver) throws HornetQAMQPException
    {
       try
       {
-         ProtonInbound producer = new ProtonInbound(sessionSPI, connection, this, receiver);
+         ProtonReceiver producer = new ProtonReceiver(sessionSPI, connection, this, receiver);
          producer.init();
          producers.put(receiver, producer);
          receiver.setContext(producer);
@@ -125,9 +125,9 @@ public class ProtonSession
       receiver.flow(100);
    }
 
-   public void addConsumer(Sender sender) throws HornetQAMQPException
+   public void addSender(Sender sender) throws HornetQAMQPException
    {
-      ProtonOutbound protonConsumer = new ProtonOutbound(connection, sender, this, sessionSPI);
+      ProtonSender protonConsumer = new ProtonSender(connection, sender, this, sessionSPI);
 
       try
       {
@@ -162,7 +162,7 @@ public class ProtonSession
          return;
       }
 
-      for (ProtonInbound protonProducer : producers.values())
+      for (ProtonReceiver protonProducer : producers.values())
       {
          try
          {
@@ -175,7 +175,7 @@ public class ProtonSession
          }
       }
       producers.clear();
-      for (ProtonOutbound protonConsumer : consumers.values())
+      for (ProtonSender protonConsumer : consumers.values())
       {
          try
          {

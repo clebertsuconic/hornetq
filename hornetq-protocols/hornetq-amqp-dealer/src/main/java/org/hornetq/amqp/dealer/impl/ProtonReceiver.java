@@ -11,46 +11,42 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.impl;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Rejected;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
-import org.apache.qpid.proton.jms.EncodedMessage;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
-import org.hornetq.utils.UUIDGenerator;
 
 /**
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  *         <p/>
  *         handles incoming messages via a Proton Receiver and forwards them to HornetQ
  */
-public class ProtonInbound implements ProtonDeliveryHandler
+public class ProtonReceiver implements ProtonDeliveryHandler
 {
-   private final ProtonRemotingConnection connection;
+   private final ProtonConnectionImpl connection;
 
-   private final ProtonSession protonSession;
+   private final ProtonSessionImpl protonSession;
 
    private final Receiver receiver;
 
    private final String address;
 
-   private ByteBuf buffer;
-
    private final ProtonSessionSPI sessionSPI;
 
-   public ProtonInbound(ProtonSessionSPI sessionSPI, ProtonRemotingConnection connection, ProtonSession protonSession, Receiver receiver)
+   public ProtonReceiver(ProtonSessionSPI sessionSPI, ProtonConnectionImpl connection, ProtonSessionImpl protonSession, Receiver receiver)
    {
       this.connection = connection;
       this.protonSession = protonSession;
       this.receiver = receiver;
       this.address = receiver.getRemoteTarget().getAddress();
       this.sessionSPI = sessionSPI;
-      buffer = sessionSPI.createBuffer(1024);
    }
 
    /*
@@ -71,33 +67,37 @@ public class ProtonInbound implements ProtonDeliveryHandler
             return;
          }
 
-         synchronized (connection.getTrio().getLock())
+         ByteBuf buffer = PooledByteBufAllocator.DEFAULT.buffer(1024 * 1024);
+         try
          {
-            int count;
-            byte[] data = new byte[1024];
-            //todo an optimisation here would be to only use the buffer if we need more that one recv
-            while ((count = receiver.recv(data, 0, data.length)) > 0)
+            synchronized (connection.getTrio().getLock())
             {
-               buffer.writeBytes(data, 0, count);
+               int count;
+               byte[] data = new byte[1024];
+               //todo an optimisation here would be to only use the buffer if we need more that one recv
+               while ((count = receiver.recv(data, 0, data.length)) > 0)
+               {
+                  buffer.writeBytes(data, 0, count);
+               }
+
+               // we keep reading until we get end of messages, i.e. -1
+               if (count == 0)
+               {
+                  // todo this is obviously incorrect, investigate return;
+               }
+
+               sessionSPI.serverSend(address, delivery.getMessageFormat(), buffer.nioBuffer());
+
+               receiver.advance();
+
+               receiver.flow(1);
+               delivery.settle();
+
             }
-
-            // we keep reading until we get end of messages, i.e. -1
-            if (count == 0)
-            {
-               // todo this is obviously incorrect, investigate return;
-            }
-            receiver.advance();
-
-            byte[] bytes = new byte[buffer.readableBytes()];
-            buffer.readBytes(bytes);
-            buffer.clear();
-            EncodedMessage encodedMessage = new EncodedMessage(delivery.getMessageFormat(), bytes, 0, bytes.length);
-
-
-            sessionSPI.serverSend(encodedMessage, address);
-            receiver.flow(1);
-            delivery.settle();
-
+         }
+         finally
+         {
+            buffer.release();
          }
 
       }
@@ -132,7 +132,7 @@ public class ProtonInbound implements ProtonDeliveryHandler
       {
          //if dynamic we have to create the node (queue) and set the address on the target, the node is temporary and
          // will be deleted on closing of the session
-         String queue = UUIDGenerator.getInstance().generateStringUUID();
+         String queue = sessionSPI.tempQueueName();
 
 
          sessionSPI.createTemporaryQueue(queue);

@@ -12,10 +12,12 @@
  */
 package org.hornetq.amqp.test;
 
+import javax.jms.BytesMessage;
 import javax.jms.Connection;
+import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
-import javax.jms.Message;
+import javax.jms.MapMessage;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
@@ -24,7 +26,7 @@ import java.util.ArrayList;
 
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
-import org.hornetq.amqp.test.dumbserver.MinimalServer;
+import org.hornetq.amqp.test.minimal.MinimalServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -77,7 +79,7 @@ public class ProtonTest
    @Test
    public void testMessagesReceivedInParallel() throws Throwable
    {
-      final int numMessages = 10;
+      final int numMessages = 10000;
       long time = System.currentTimeMillis();
       final QueueImpl queue = new QueueImpl(address);
 
@@ -91,8 +93,8 @@ public class ProtonTest
             Connection connectionConsumer = null;
             try
             {
-//               connectionConsumer = createConnection();
-               connectionConsumer = connection;
+               connectionConsumer = createConnection();
+//               connectionConsumer = connection;
                connectionConsumer.start();
                Session sessionConsumer = connectionConsumer.createSession(false, Session.AUTO_ACKNOWLEDGE);
                final MessageConsumer consumer = sessionConsumer.createConsumer(queue);
@@ -102,7 +104,11 @@ public class ProtonTest
                {
                   try
                   {
-                     Message m = consumer.receive(5000);
+                     BytesMessage m = (BytesMessage) consumer.receive(50000);
+                     if (count % 100 == 0)
+                     {
+                        System.out.println("Count = " + count + ", property=" + m.getStringProperty("XX"));
+                     }
                      Assert.assertNotNull("Could not receive message count=" + count + " on consumer", m);
                      count--;
                   }
@@ -135,31 +141,61 @@ public class ProtonTest
          }
       });
 
-      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      Session session = connection.createSession(false, Session.DUPS_OK_ACKNOWLEDGE);
+
+      t.start();
 
       MessageProducer p = session.createProducer(queue);
+      p.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
       for (int i = 0; i < numMessages; i++)
       {
-         TextMessage message = session.createTextMessage();
-         message.setText("msg:" + i);
+         BytesMessage message = session.createBytesMessage();
+         // TODO: this will break stuff if I use a large number
+         message.writeBytes(new byte[200]);
          message.setIntProperty("count", i);
+         message.setStringProperty("XX", "count" + i);
          p.send(message);
       }
 
-      t.start();
+      long taken = (System.currentTimeMillis() - time);
+      System.out.println("taken on send = " + taken);
       t.join();
 
       for (Throwable e : exceptions)
       {
          throw e;
       }
+      taken = (System.currentTimeMillis() - time);
+      System.out.println("taken = " + taken);
 
       connection.close();
 //      assertEquals(0, q.getMessageCount());
-      long taken = (System.currentTimeMillis() - time) / 1000;
-      System.out.println("taken = " + taken);
    }
 
+   @Test
+   public void testMapMessage() throws Exception
+   {
+      QueueImpl queue = new QueueImpl(address);
+      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      MessageProducer p = session.createProducer(queue);
+      for (int i = 0; i < 10; i++)
+      {
+         MapMessage message = session.createMapMessage();
+         message.setInt("x", i);
+         message.setString("str", "str" + i);
+         p.send(message);
+      }
+      connection.start();
+      MessageConsumer messageConsumer = session.createConsumer(queue);
+      for (int i = 0; i < 10; i++)
+      {
+         MapMessage m = (MapMessage) messageConsumer.receive(5000);
+         Assert.assertNotNull(m);
+         Assert.assertEquals(i, m.getInt("x"));
+         Assert.assertEquals("str" + i, m.getString("str"));
+      }
+      connection.close();
+   }
 
    @Test
    public void testProperties() throws Exception
@@ -197,7 +233,7 @@ public class ProtonTest
 
    private javax.jms.Connection createConnection() throws JMSException
    {
-      final ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", 5672, "bbb", "aaa");
+      final ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
       final javax.jms.Connection connection = factory.createConnection();
       connection.setExceptionListener(new ExceptionListener()
       {

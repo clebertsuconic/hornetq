@@ -288,7 +288,7 @@ public class ProtonTest extends ServiceTestBase
    @Test
    public void testMessagesReceivedInParallel() throws Throwable
    {
-      final int numMessages = 10;
+      final int numMessages = 1000;
       long time = System.currentTimeMillis();
       final QueueImpl queue = new QueueImpl(address);
 

@@ -55,7 +55,7 @@ import org.hornetq.core.server.cluster.ClusterConnection;
 import org.hornetq.core.server.cluster.ClusterControl;
 import org.hornetq.core.server.cluster.ClusterManager;
 import org.hornetq.core.server.cluster.ClusterManager.IncomingInterceptorLookingForExceptionMessage;
-import org.hornetq.core.server.cluster.HornetQReplicationProtocolManagerFactory;
+import org.hornetq.core.server.cluster.HornetQServerSideProtocolManagerFactory;
 import org.hornetq.core.server.cluster.MessageFlowRecord;
 import org.hornetq.core.server.cluster.RemoteQueueBinding;
 import org.hornetq.core.server.group.impl.Proposal;
@@ -654,7 +654,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
 
          serverLocator.setAfterConnectionInternalListener(this);
 
-         serverLocator.setProtocolManagerFactory(new HornetQReplicationProtocolManagerFactory());
+         serverLocator.setProtocolManagerFactory(new HornetQServerSideProtocolManagerFactory());
 
          serverLocator.start(server.getExecutorFactory().getExecutor());
       }
@@ -846,7 +846,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
 
       targetLocator.setAfterConnectionInternalListener(this);
 
-      serverLocator.setProtocolManagerFactory(new HornetQReplicationProtocolManagerFactory());
+      serverLocator.setProtocolManagerFactory(new HornetQServerSideProtocolManagerFactory());
 
       targetLocator.setNodeID(nodeId);
 

@@ -10,7 +10,7 @@
  * implied.  See the License for the specific language governing
  * permissions and limitations under the License.
  */
-package org.hornetq.amqp.test.dumbserver;
+package org.hornetq.amqp.test.minimal;
 
 
 import java.net.InetSocketAddress;
@@ -36,9 +36,9 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
-import org.hornetq.amqp.dealer.ByteUtil;
-import org.hornetq.amqp.dealer.ProtonRemotingConnection;
-import org.hornetq.utils.HornetQThreadFactory;
+import org.hornetq.amqp.dealer.impl.ProtonConnectionImpl;
+import org.hornetq.amqp.dealer.util.ByteUtil;
+import org.hornetq.amqp.dealer.util.DebugInfo;
 
 /**
  * A Netty TCP Acceptor that supports SSL
@@ -87,7 +87,7 @@ public class MinimalServer
 
       int threadsToUse = Runtime.getRuntime().availableProcessors() * 3;
       channelClazz = NioServerSocketChannel.class;
-      eventLoopGroup = new NioEventLoopGroup(threadsToUse, new HornetQThreadFactory("hornetq-netty-threads", true, Thread.currentThread().getContextClassLoader()));
+      eventLoopGroup = new NioEventLoopGroup(threadsToUse, new SimpleServerThreadFactory("simple-server", true, Thread.currentThread().getContextClassLoader()));
 
       bootstrap = new ServerBootstrap();
       bootstrap.group(eventLoopGroup);
@@ -120,7 +120,7 @@ public class MinimalServer
    class ProtocolDecoder extends ByteToMessageDecoder
    {
 
-      ProtonRemotingConnection connection;
+      ProtonConnectionImpl connection;
 
 
       public ProtocolDecoder()
@@ -137,28 +137,31 @@ public class MinimalServer
 
          if (connection == null)
          {
-            connection = new ProtonRemotingConnection(new MinimalConnectionSPI(ctx.channel()));
+            connection = new ProtonConnectionImpl(new MinimalConnectionSPI(ctx.channel()));
          }
 
 
-         // debugging
-         byte[] frame = new byte[byteIn.writerIndex()];
-         byteIn.readBytes(frame);
-
-         try
+         if (DebugInfo.debug)
          {
-            System.err.println("Buffer Received: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+            int location = byteIn.readerIndex();
+            // debugging
+            byte[] frame = new byte[byteIn.writerIndex()];
+            byteIn.readBytes(frame);
+
+            try
+            {
+               System.err.println("Buffer Received: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+            }
+            catch (Exception e)
+            {
+               e.printStackTrace();
+            }
+
+            byteIn.readerIndex(location);
          }
-         catch (Exception e)
-         {
-            e.printStackTrace();
-         }
 
-         byteIn.readerIndex(0);
-
-
-
-         connection.inputBuffer(byteIn);
+         int pos = connection.inputBuffer(byteIn);
+         byteIn.readerIndex(pos);
          ctx.flush();
       }
    }

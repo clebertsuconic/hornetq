@@ -23,7 +23,7 @@ import org.hornetq.spi.core.remoting.ClientProtocolManagerFactory;
  * A protocol manager that will replace the packet manager for inter-server communications
  * @author Clebert Suconic
  */
-public class HornetQReplicationProtocolManagerFactory implements ClientProtocolManagerFactory
+public class HornetQServerSideProtocolManagerFactory implements ClientProtocolManagerFactory
 {
    @Override
    public ClientProtocolManager newProtocolManager()

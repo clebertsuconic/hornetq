@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.test.dumbserver;
+package org.hornetq.amqp.test.minimal;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -19,9 +19,10 @@ import java.util.concurrent.Executors;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
-import org.hornetq.amqp.dealer.ByteUtil;
+import org.hornetq.amqp.dealer.util.ByteUtil;
 import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
+import org.hornetq.amqp.dealer.util.DebugInfo;
 
 /**
  * @author Clebert Suconic
@@ -59,22 +60,26 @@ public class MinimalConnectionSPI implements ProtonConnectionSPI
    @Override
    public void output(ByteBuf bytes)
    {
-      // some debug
-      byte[] frame = new byte[bytes.writerIndex()];
-      int readerOriginalPos = bytes.readerIndex();
 
-      bytes.getBytes(0, frame);
-
-      try
+      if (DebugInfo.debug)
       {
-         System.err.println("Buffer Outgoing: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
-      }
-      catch (Exception e)
-      {
-         e.printStackTrace();
-      }
+         // some debug
+         byte[] frame = new byte[bytes.writerIndex()];
+         int readerOriginalPos = bytes.readerIndex();
 
-      bytes.readerIndex(readerOriginalPos);
+         bytes.getBytes(0, frame);
+
+         try
+         {
+            System.err.println("Buffer Outgoing: " + "\n" + ByteUtil.formatGroup(ByteUtil.bytesToHex(frame), 4, 16));
+         }
+         catch (Exception e)
+         {
+            e.printStackTrace();
+         }
+
+         bytes.readerIndex(readerOriginalPos);
+      }
 
 
       // ^^ debug

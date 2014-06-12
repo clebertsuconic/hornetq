@@ -11,20 +11,21 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer.client;
+package org.hornetq.amqp.dealer.impl;
 
-import org.hornetq.spi.core.remoting.ClientProtocolManager;
-import org.hornetq.spi.core.remoting.ClientProtocolManagerFactory;
+import org.apache.qpid.proton.engine.Delivery;
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 
 /**
- * @author Clebert Suconic
+ * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
+ *         <p/>
+ *         An interface to handle deliveries, either messages, acks or transaction calls
  */
-
-public class AMQPClientProtocolManagerFactory implements ClientProtocolManagerFactory
+public interface ProtonDeliveryHandler
 {
-   @Override
-   public ClientProtocolManager newProtocolManager()
-   {
-      return new AMQPClientProtocolManager();
-   }
+   void onMessage(Delivery delivery) throws HornetQAMQPException;
+
+   void checkState();
+
+   void close() throws HornetQAMQPException;
 }

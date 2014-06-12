@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.impl;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -29,7 +29,6 @@ import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.apache.qpid.proton.engine.Transport;
-import org.hornetq.api.core.HornetQException;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
@@ -39,11 +38,11 @@ import org.hornetq.amqp.dealer.util.ProtonTrio;
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  * Clebert Suconic
  */
-public class ProtonRemotingConnection
+public class ProtonConnectionImpl
 {
    private final ProtonServerTrio trio;
 
-   private final Map<Object, ProtonSession> sessions = new ConcurrentHashMap<>();
+   private final Map<Object, ProtonSessionImpl> sessions = new ConcurrentHashMap<>();
 
    private final long creationTime;
 
@@ -51,7 +50,7 @@ public class ProtonRemotingConnection
 
    private final ProtonConnectionSPI connectionSPI;
 
-   public ProtonRemotingConnection(ProtonConnectionSPI connectionSPI)
+   public ProtonConnectionImpl(ProtonConnectionSPI connectionSPI)
    {
       this.connectionSPI = connectionSPI;
 
@@ -62,9 +61,9 @@ public class ProtonRemotingConnection
       trio.createServerSasl(connectionSPI.getSASLMechanisms());
    }
 
-   public void inputBuffer(ByteBuf buffer)
+   public int inputBuffer(ByteBuf buffer)
    {
-      trio.pump(buffer);
+      return trio.pump(buffer);
    }
 
    public ProtonTrio getTrio()
@@ -111,9 +110,9 @@ public class ProtonRemotingConnection
       dataReceived = true;
    }
 
-   private ProtonSession getSession(Session realSession) throws HornetQAMQPException
+   private ProtonSessionImpl getSession(Session realSession) throws HornetQAMQPException
    {
-      ProtonSession protonSession = sessions.get(realSession);
+      ProtonSessionImpl protonSession = sessions.get(realSession);
       if (protonSession == null)
       {
          // how this is possible? Log a warn here
@@ -124,10 +123,10 @@ public class ProtonRemotingConnection
    }
 
 
-   private ProtonSession createSession(Session realSession) throws HornetQAMQPException
+   private ProtonSessionImpl createSession(Session realSession) throws HornetQAMQPException
    {
       ProtonSessionSPI sessionSPI = connectionSPI.createSessionSPI();
-      ProtonSession protonSession = new ProtonSession(sessionSPI, this);
+      ProtonSessionImpl protonSession = new ProtonSessionImpl(sessionSPI, this);
       realSession.setContext(protonSession);
       sessions.put(realSession, protonSession);
 
@@ -152,7 +151,7 @@ public class ProtonRemotingConnection
       @Override
       protected void connectionClosed(org.apache.qpid.proton.engine.Connection connection)
       {
-         for (ProtonSession protonSession : sessions.values())
+         for (ProtonSessionImpl protonSession : sessions.values())
          {
             protonSession.close();
          }
@@ -171,7 +170,7 @@ public class ProtonRemotingConnection
          {
             createSession(session);
          }
-         catch (HornetQException e)
+         catch (Throwable e)
          {
             session.close();
             transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
@@ -182,7 +181,7 @@ public class ProtonRemotingConnection
       @Override
       protected void sessionClosed(Session session)
       {
-         ProtonSession protonSession = (ProtonSession) session.getContext();
+         ProtonSessionImpl protonSession = (ProtonSessionImpl) session.getContext();
          protonSession.close();
          sessions.remove(session);
          session.close();
@@ -195,7 +194,7 @@ public class ProtonRemotingConnection
          try
          {
 
-            ProtonSession protonSession = getSession(link.getSession());
+            ProtonSessionImpl protonSession = getSession(link.getSession());
 
             link.setSource(link.getRemoteSource());
             link.setTarget(link.getRemoteTarget());
@@ -211,7 +210,7 @@ public class ProtonRemotingConnection
                else
                {
                   protonSession.initialise(false);
-                  protonSession.addProducer(receiver);
+                  protonSession.addReceiver(receiver);
                   //todo do this using the server session flow control
                   receiver.flow(100);
                }
@@ -222,12 +221,12 @@ public class ProtonRemotingConnection
                {
                   protonSession.initialise(false);
                   Sender sender = (Sender) link;
-                  protonSession.addConsumer(sender);
+                  protonSession.addSender(sender);
                   sender.offer(1);
                }
             }
          }
-         catch (HornetQException e)
+         catch (Throwable e)
          {
             link.close();
             transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
@@ -241,7 +240,7 @@ public class ProtonRemotingConnection
          {
             ((ProtonDeliveryHandler) link.getContext()).close();
          }
-         catch (HornetQException e)
+         catch (Throwable e)
          {
             link.close();
             transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
@@ -306,7 +305,7 @@ public class ProtonRemotingConnection
       {
          int size = transport.pending();
 
-         if (size == 0)
+         if (size <= 0)
          {
             return null;
          }

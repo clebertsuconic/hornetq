@@ -113,29 +113,58 @@ public abstract class ProtonTrio
       }
    }
 
-   public boolean pump(ByteBuf bytes)
+   public int pump(ByteBuf bytes)
    {
+      int bytesRead = 0;
       try
       {
          synchronized (lock)
          {
             if (bytes.writerIndex() < 8)
             {
-               return false;
+               return 0;
             }
-            ByteBuffer tmp = bytes.internalNioBuffer(0, bytes.writerIndex());
-            transport.getInputBuffer().put(tmp);
-            if (transport.processInput() != TransportResultFactory.ok())
+
+            final int size = bytes.writerIndex();
+
+            final ByteBuffer input = transport.getInputBuffer();
+
+            if (size > input.capacity())
             {
-               System.err.println("Couldn't process header!!!");
-               connection.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, "Error processing header"));
-               return false;
+
+               for (int start = 0; start < size; )
+               {
+                  int capacity = input.capacity();
+                  if (capacity == 0)
+                  {
+                     System.err.println("Capacity full!!!!");
+                     break;
+                  }
+                  int max = Math.min(capacity, size - start);
+                  ByteBuffer tmp = bytes.internalNioBuffer(start, max);
+                  transport.getInputBuffer().put(tmp);
+                  if (!processBuffer())
+                  {
+                     System.err.println("DEBUG This.. Process Buffer returned false!!!!!!!!!!!!!");
+                     bytesRead = start;
+                     break;
+                  }
+
+                  start += max;
+                  bytesRead = start;
+               }
+
+            }
+            else
+            {
+               bytesRead = bytes.writerIndex();
+               ByteBuffer tmp = bytes.internalNioBuffer(0, bytes.writerIndex());
+               transport.getInputBuffer().put(tmp);
+               if (!processBuffer()) return 0;
             }
 
-            checkSASL();
 
-
-            return true;
+            return bytesRead;
 
          }
       }
@@ -145,13 +174,25 @@ public abstract class ProtonTrio
       }
    }
 
+   private boolean processBuffer()
+   {
+      if (transport.processInput() != TransportResultFactory.ok())
+      {
+         System.err.println("Couldn't process header!!!");
+         connection.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, "Error processing header"));
+         return false;
+      }
+
+      checkSASL();
+      dispatch();
+      return true;
+   }
+
    private void checkSASL()
    {
-      System.out.println("SASL = " + qpidServerSASL);
       if (qpidServerSASL != null && qpidServerSASL.getRemoteMechanisms().length > 0)
       {
 
-         System.out.println("SASL being done");
          byte[] dataSASL = new byte[qpidServerSASL.pending()];
          qpidServerSASL.recv(dataSASL, 0, dataSASL.length);
 
@@ -194,7 +235,6 @@ public abstract class ProtonTrio
       }
       else if (connection.getRemoteState() == EndpointState.CLOSED)
       {
-         System.out.println("Closing connection");
          connection.close();
          connectionClosed(connection);
       }

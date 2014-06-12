@@ -11,21 +11,13 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
-
-import org.apache.qpid.proton.engine.Delivery;
-import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+package org.hornetq.amqp.dealer.util;
 
 /**
- * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
- *         <p/>
- *         An interface to handle deliveries, either messages, acks or transaction calls
+ * @author Clebert Suconic
  */
-public interface ProtonDeliveryHandler
+
+public class DebugInfo
 {
-   void onMessage(Delivery delivery) throws HornetQAMQPException;
-
-   void checkState();
-
-   void close() throws HornetQAMQPException;
+   public static final boolean debug = false;
 }
