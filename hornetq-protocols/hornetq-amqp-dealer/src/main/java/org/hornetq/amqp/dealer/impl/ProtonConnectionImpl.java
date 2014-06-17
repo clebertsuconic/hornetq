@@ -29,6 +29,7 @@ import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.apache.qpid.proton.engine.Transport;
+import org.hornetq.amqp.dealer.AMQPConnectionAbstract;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
@@ -38,29 +39,22 @@ import org.hornetq.amqp.dealer.util.ProtonTrio;
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  * Clebert Suconic
  */
-public class ProtonConnectionImpl
+public class ProtonConnectionImpl extends AMQPConnectionAbstract
 {
    private final ProtonServerTrio trio;
 
    private final Map<Object, ProtonSessionImpl> sessions = new ConcurrentHashMap<>();
 
-   private final long creationTime;
-
-   private boolean dataReceived;
-
-   private final ProtonConnectionSPI connectionSPI;
-
    public ProtonConnectionImpl(ProtonConnectionSPI connectionSPI)
    {
-      this.connectionSPI = connectionSPI;
-
-      this.creationTime = System.currentTimeMillis();
+      super(connectionSPI);
 
       trio = new ProtonServerTrio(connectionSPI.newSingleThreadExecutor());
 
       trio.createServerSasl(connectionSPI.getSASLMechanisms());
    }
 
+   @Override
    public int inputBuffer(ByteBuf buffer)
    {
       return trio.pump(buffer);
@@ -69,11 +63,6 @@ public class ProtonConnectionImpl
    public ProtonTrio getTrio()
    {
       return trio;
-   }
-
-   public long getCreationTime()
-   {
-      return creationTime;
    }
 
    public void destroy()
@@ -86,28 +75,16 @@ public class ProtonConnectionImpl
       return connectionSPI;
    }
 
-   public boolean checkDataReceived()
-   {
-      boolean res = dataReceived;
-
-      dataReceived = false;
-
-      return res;
-   }
-
+   @Override
    public String getLogin()
    {
       return trio.getUsername();
    }
 
+   @Override
    public String getPasscode()
    {
       return trio.getPassword();
-   }
-
-   protected synchronized void setDataReceived()
-   {
-      dataReceived = true;
    }
 
    private ProtonSessionImpl getSession(Session realSession) throws HornetQAMQPException

@@ -36,7 +36,8 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
-import org.hornetq.amqp.dealer.impl.ProtonConnectionImpl;
+import org.hornetq.amqp.dealer.AMQPConnection;
+import org.hornetq.amqp.dealer.impl.ProtonConnectionFactory;
 import org.hornetq.amqp.dealer.util.ByteUtil;
 import org.hornetq.amqp.dealer.util.DebugInfo;
 
@@ -120,7 +121,7 @@ public class MinimalServer
    class ProtocolDecoder extends ByteToMessageDecoder
    {
 
-      ProtonConnectionImpl connection;
+      AMQPConnection connection;
 
 
       public ProtocolDecoder()
@@ -137,7 +138,7 @@ public class MinimalServer
 
          if (connection == null)
          {
-            connection = new ProtonConnectionImpl(new MinimalConnectionSPI(ctx.channel()));
+            connection = ProtonConnectionFactory.getFactory().createConnection(new MinimalConnectionSPI(ctx.channel()));
          }
 
 
