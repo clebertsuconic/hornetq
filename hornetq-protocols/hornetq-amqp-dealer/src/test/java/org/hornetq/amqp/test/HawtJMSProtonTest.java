@@ -41,10 +41,4 @@ public class HawtJMSProtonTest extends ProtonTest
 
 
 
-   protected int getNumberOfMessages()
-   {
-      return 2000;
-   }
-
-
 }

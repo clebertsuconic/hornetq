@@ -256,7 +256,7 @@ public class ProtonTest
 
    protected int getNumberOfMessages()
    {
-      return 2000;
+      return 10000;
    }
 
 
