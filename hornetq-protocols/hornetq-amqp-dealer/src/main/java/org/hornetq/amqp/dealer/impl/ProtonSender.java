@@ -16,6 +16,7 @@ package org.hornetq.amqp.dealer.impl;
 import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.DescribedType;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
@@ -183,12 +184,12 @@ public class ProtonSender implements ProtonDeliveryHandler
          e.printStackTrace();
       }
 
-      ByteBuf nettyBuffer = sessionSPI.pooledBuffer(1024 * 1024);
+      ByteBuf nettyBuffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
       try
       {
          serverMessage.encode(new NettyWritable(nettyBuffer));
 
-         int size;
+         int size = nettyBuffer.writerIndex();
 
          synchronized (connection.getTrio().getLock())
          {
@@ -196,20 +197,8 @@ public class ProtonSender implements ProtonDeliveryHandler
             delivery = sender.delivery(tag, 0, tag.length);
             delivery.setContext(message);
 
-            byte[] sendBuffer = new byte[1024];
-
-            int position = nettyBuffer.readerIndex();
-            size = nettyBuffer.writerIndex();
-            while (position < size)
-            {
-               int bytestoRead = Math.min(sendBuffer.length, size - position);
-
-               nettyBuffer.getBytes(position, sendBuffer, 0, bytestoRead);
-
-               sender.send(sendBuffer, 0, bytestoRead);
-
-               position += bytestoRead;
-            }
+            // this will avoid a copy.. patch provided by Norman using buffer.array()
+            sender.send(nettyBuffer.array(), nettyBuffer.arrayOffset() + nettyBuffer.readerIndex(), nettyBuffer.readableBytes());
 
             ((LinkImpl) sender).addCredit(1);
 
