@@ -120,7 +120,7 @@ public abstract class ProtonTrio
       {
          synchronized (lock)
          {
-            if (bytes.writerIndex() < 8)
+            if (bytes.writerIndex() - bytes.readerIndex() < 8)
             {
                return 0;
             }

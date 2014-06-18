@@ -67,17 +67,17 @@ public class ProtonReceiver implements ProtonDeliveryHandler
             return;
          }
 
-         ByteBuf buffer = PooledByteBufAllocator.DEFAULT.buffer(1024 * 1024);
+         ByteBuf buffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
          try
          {
             synchronized (connection.getTrio().getLock())
             {
                int count;
-               byte[] data = new byte[1024];
                //todo an optimisation here would be to only use the buffer if we need more that one recv
-               while ((count = receiver.recv(data, 0, data.length)) > 0)
+               while ((count = receiver.recv(buffer.array(), buffer.arrayOffset() + buffer.writerIndex(), buffer.writableBytes())) > 0)
                {
-                  buffer.writeBytes(data, 0, count);
+                  // Increment the writer index by the number of bytes written into it while calling recv.
+                  buffer.writerIndex(buffer.writerIndex() + count);
                }
 
                // we keep reading until we get end of messages, i.e. -1
@@ -99,7 +99,6 @@ public class ProtonReceiver implements ProtonDeliveryHandler
          {
             buffer.release();
          }
-
       }
       catch (Exception e)
       {
