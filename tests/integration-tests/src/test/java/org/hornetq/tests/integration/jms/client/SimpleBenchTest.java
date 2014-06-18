@@ -15,6 +15,7 @@ package org.hornetq.tests.integration.jms.client;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
@@ -23,7 +24,9 @@ import javax.jms.Queue;
 import javax.jms.Session;
 
 import java.util.ArrayList;
+import java.util.List;
 
+import org.hornetq.api.core.TransportConfiguration;
 import org.hornetq.tests.util.JMSTestBase;
 import org.junit.After;
 import org.junit.Assert;
@@ -40,6 +43,11 @@ public class SimpleBenchTest extends JMSTestBase
 
    private Queue queue;
 
+
+   protected boolean usePersistence()
+   {
+      return false;
+   }
 
    @Override
    @Before
@@ -165,5 +173,16 @@ public class SimpleBenchTest extends JMSTestBase
 //      assertEquals(0, q.getMessageCount());
    }
 
+
+   @Override
+   protected void registerConnectionFactory() throws Exception
+   {
+      List<TransportConfiguration> connectorConfigs = new ArrayList<TransportConfiguration>();
+      connectorConfigs.add(new TransportConfiguration(NETTY_CONNECTOR_FACTORY));
+
+      createCF(connectorConfigs, "/cf");
+
+      cf = (ConnectionFactory) namingContext.lookup("/cf");
+   }
 
 }

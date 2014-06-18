@@ -249,7 +249,6 @@ public class NettyConnection implements Connection
             boolean inEventLoop = eventLoop.inEventLoop();
             if (!inEventLoop)
             {
-               System.out.println("Writing directly");
                channel.writeAndFlush(buf, promise);
             }
             else
@@ -262,7 +261,6 @@ public class NettyConnection implements Connection
                   @Override
                   public void run()
                   {
-                     System.out.println("Writing through channel::" + buf.refCnt());
                      channel.writeAndFlush(buf, promise);
                   }
                };
