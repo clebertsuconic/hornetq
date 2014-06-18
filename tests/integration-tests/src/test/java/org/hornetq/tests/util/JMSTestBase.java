@@ -148,7 +148,6 @@ public class JMSTestBase extends ServiceTestBase
    @Override
    protected Configuration createDefaultConfig(boolean netty) throws Exception
    {
-      new Exception ("Netty = " + netty).printStackTrace();
       Configuration conf = super.createDefaultConfig(netty);
 
       conf.setSecurityEnabled(false);
