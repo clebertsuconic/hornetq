@@ -16,6 +16,7 @@ package org.hornetq.amqp.dealer.impl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.Symbol;
+import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.amqp.messaging.Rejected;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Delivery;
@@ -91,6 +92,7 @@ public class ProtonReceiver implements ProtonDeliveryHandler
                receiver.advance();
 
                receiver.flow(1);
+               delivery.disposition(Accepted.getInstance());
                delivery.settle();
 
             }

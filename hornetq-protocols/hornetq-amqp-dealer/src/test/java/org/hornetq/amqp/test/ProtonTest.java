@@ -14,12 +14,14 @@ package org.hornetq.amqp.test;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
+import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.util.ArrayList;
@@ -37,7 +39,7 @@ import org.junit.Test;
  */
 public class ProtonTest
 {
-   private String address = "exampleQueue";
+   protected String address = "exampleQueue";
    private Connection connection;
 
    private MinimalServer server = new MinimalServer();
@@ -79,9 +81,9 @@ public class ProtonTest
    @Test
    public void testMessagesReceivedInParallel() throws Throwable
    {
-      final int numMessages = 10000;
+      final int numMessages = getNumberOfMessages();
       long time = System.currentTimeMillis();
-      final QueueImpl queue = new QueueImpl(address);
+      final Queue queue = createQueue();
 
       final ArrayList<Throwable> exceptions = new ArrayList<>();
 
@@ -105,7 +107,7 @@ public class ProtonTest
                   try
                   {
                      BytesMessage m = (BytesMessage) consumer.receive(50000);
-                     if (count % 100 == 0)
+                     if (count % 1000 == 0)
                      {
                         System.out.println("Count = " + count + ", property=" + m.getStringProperty("XX"));
                      }
@@ -146,12 +148,12 @@ public class ProtonTest
       t.start();
 
       MessageProducer p = session.createProducer(queue);
-      p.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+      p.setDeliveryMode(DeliveryMode.PERSISTENT);
       for (int i = 0; i < numMessages; i++)
       {
          BytesMessage message = session.createBytesMessage();
          // TODO: this will break stuff if I use a large number
-         message.writeBytes(new byte[200]);
+         message.writeBytes(new byte[5]);
          message.setIntProperty("count", i);
          message.setStringProperty("XX", "count" + i);
          p.send(message);
@@ -175,7 +177,7 @@ public class ProtonTest
    @Test
    public void testMapMessage() throws Exception
    {
-      QueueImpl queue = new QueueImpl(address);
+      Queue queue = createQueue();
       Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
       MessageProducer p = session.createProducer(queue);
       for (int i = 0; i < 10; i++)
@@ -200,7 +202,7 @@ public class ProtonTest
    @Test
    public void testProperties() throws Exception
    {
-      QueueImpl queue = new QueueImpl(address);
+      Queue queue = createQueue();
       Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
       MessageProducer p = session.createProducer(queue);
       TextMessage message = session.createTextMessage();
@@ -233,7 +235,7 @@ public class ProtonTest
 
    private javax.jms.Connection createConnection() throws JMSException
    {
-      final ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
+      final ConnectionFactory factory = createConnectionFactory();
       final javax.jms.Connection connection = factory.createConnection();
       connection.setExceptionListener(new ExceptionListener()
       {
@@ -246,4 +248,21 @@ public class ProtonTest
       connection.start();
       return connection;
    }
+
+   protected ConnectionFactory createConnectionFactory()
+   {
+      return new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
+   }
+
+   protected int getNumberOfMessages()
+   {
+      return 2000;
+   }
+
+
+   protected Queue createQueue()
+   {
+      return new QueueImpl(address);
+   }
+
 }
