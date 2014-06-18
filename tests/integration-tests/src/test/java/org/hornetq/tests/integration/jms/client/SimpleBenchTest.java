@@ -147,7 +147,7 @@ public class SimpleBenchTest extends JMSTestBase
       t.start();
 
       MessageProducer p = session.createProducer(queue);
-      p.setDeliveryMode(DeliveryMode.PERSISTENT);
+      p.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
       for (int i = 0; i < numMessages; i++)
       {
          BytesMessage message = session.createBytesMessage();
