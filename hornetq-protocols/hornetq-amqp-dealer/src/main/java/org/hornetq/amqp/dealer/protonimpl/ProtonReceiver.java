@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer.impl;
+package org.hornetq.amqp.dealer.protonimpl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -22,6 +22,7 @@ import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 
 /**
@@ -31,7 +32,7 @@ import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
  */
 public class ProtonReceiver implements ProtonDeliveryHandler
 {
-   private final ProtonConnectionImpl connection;
+   private final ProtonAbstractConnectionImpl connection;
 
    private final ProtonSessionImpl protonSession;
 
@@ -41,7 +42,7 @@ public class ProtonReceiver implements ProtonDeliveryHandler
 
    private final ProtonSessionSPI sessionSPI;
 
-   public ProtonReceiver(ProtonSessionSPI sessionSPI, ProtonConnectionImpl connection, ProtonSessionImpl protonSession, Receiver receiver)
+   public ProtonReceiver(ProtonSessionSPI sessionSPI, ProtonAbstractConnectionImpl connection, ProtonSessionImpl protonSession, Receiver receiver)
    {
       this.connection = connection;
       this.protonSession = protonSession;

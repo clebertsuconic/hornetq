@@ -11,44 +11,33 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.protonimpl.client;
 
+import org.hornetq.amqp.dealer.AMQPConnection;
+import org.hornetq.amqp.dealer.AMQPConnectionFactory;
 import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
 
 /**
  * @author Clebert Suconic
  */
 
-public abstract class AMQPConnectionAbstract implements AMQPConnection
+public class ProtonClientConnectionFactory extends AMQPConnectionFactory
 {
-   protected final ProtonConnectionSPI connectionSPI;
-   protected final long creationTime;
-   protected boolean dataReceived;
-
-   public AMQPConnectionAbstract(ProtonConnectionSPI connectionSPI)
+   private static final AMQPConnectionFactory theInstance = new ProtonClientConnectionFactory();
+   public static AMQPConnectionFactory getFactory()
    {
-      this.connectionSPI = connectionSPI;
-      this.creationTime = System.currentTimeMillis();
+      return theInstance;
    }
 
-   @Override
-   public boolean checkDataReceived()
+   // TODO implement sasl
+   public AMQPConnection createConnection(ProtonConnectionSPI spi, boolean sasl)
    {
-      boolean res = dataReceived;
-
-      dataReceived = false;
-
-      return res;
+      return new ProtonClientConnectionImpl(spi);
    }
 
-   @Override
-   public long getCreationTime()
-   {
-      return creationTime;
-   }
 
-   protected synchronized void setDataReceived()
-   {
-      dataReceived = true;
-   }
+
+
+
+
 }

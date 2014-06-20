@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.test.minimal;
+package org.hornetq.amqp.test.minimalserver;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingDeque;
@@ -21,7 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.Binary;
-import org.hornetq.amqp.dealer.impl.ProtonSessionImpl;
+import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
+import org.hornetq.amqp.dealer.protonimpl.server.ServerProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 import org.hornetq.amqp.dealer.util.ProtonServerMessage;
 
@@ -35,12 +36,12 @@ public class MinimalSessionSPI implements ProtonSessionSPI
    String user;
    String password;
    boolean transacted;
-   ProtonSessionImpl session;
+   ServerProtonSessionImpl session;
 
    @Override
    public void init(ProtonSessionImpl session, String user, String passcode, boolean transacted)
    {
-      this.session = session;
+      this.session = (ServerProtonSessionImpl)session;
       this.user = user;
       this.password = passcode;
       this.transacted = transacted;
@@ -92,7 +93,7 @@ public class MinimalSessionSPI implements ProtonSessionSPI
    @Override
    public ProtonServerMessage encodeMessage(Object message, int deliveryCount)
    {
-      // We are storing internally as EncodedMessage on this minimal server
+      // We are storing internally as EncodedMessage on this minimalserver server
       return (ProtonServerMessage)message;
    }
 
@@ -199,7 +200,7 @@ public class MinimalSessionSPI implements ProtonSessionSPI
                         Object msg = queue.poll(1, TimeUnit.SECONDS);
                         if (msg != null)
                         {
-                           session.deliverMessage(msg, Consumer.this, 1);
+                           session.serverDelivery(msg, Consumer.this, 1);
                         }
                      }
                   }

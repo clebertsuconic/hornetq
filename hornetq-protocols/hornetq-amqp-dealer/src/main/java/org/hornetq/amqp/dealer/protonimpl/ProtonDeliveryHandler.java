@@ -11,15 +11,21 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.protonimpl;
 
-import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
+import org.apache.qpid.proton.engine.Delivery;
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 
 /**
- * @author Clebert Suconic
+ * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
+ *         <p/>
+ *         An interface to handle deliveries, either messages, acks or transaction calls
  */
-
-public abstract class AMQPConnectionFactory
+public interface ProtonDeliveryHandler
 {
-   public abstract AMQPConnection createConnection(ProtonConnectionSPI spi, boolean sasl);
+   void onMessage(Delivery delivery) throws HornetQAMQPException;
+
+   void checkState();
+
+   void close() throws HornetQAMQPException;
 }

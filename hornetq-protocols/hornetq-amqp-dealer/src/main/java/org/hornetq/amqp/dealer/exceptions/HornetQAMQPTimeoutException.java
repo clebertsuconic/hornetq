@@ -11,15 +11,19 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.exceptions;
 
-import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
+import org.apache.qpid.proton.amqp.transport.AmqpError;
 
 /**
  * @author Clebert Suconic
  */
 
-public abstract class AMQPConnectionFactory
+public class HornetQAMQPTimeoutException extends HornetQAMQPException
 {
-   public abstract AMQPConnection createConnection(ProtonConnectionSPI spi, boolean sasl);
+   public HornetQAMQPTimeoutException(String message)
+   {
+      super(AmqpError.ILLEGAL_STATE, message);
+   }
+
 }

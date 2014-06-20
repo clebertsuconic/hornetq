@@ -65,6 +65,11 @@ public abstract class ProtonTrio
       this.executor = executor;
    }
 
+   public Connection getConnection()
+   {
+      return connection;
+   }
+
 
    Runnable dispatchRunnable = new Runnable()
    {
@@ -89,11 +94,6 @@ public abstract class ProtonTrio
    {
       return lock;
    }
-
-   private static final byte[] VERSION_HEADER = new byte[]{
-      'A', 'M', 'Q', 'P', 0, 1, 0, 0
-   };
-
 
    public void createServerSasl(String... mechanisms)
    {

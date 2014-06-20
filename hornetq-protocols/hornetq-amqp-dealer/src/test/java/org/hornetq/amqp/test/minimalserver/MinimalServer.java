@@ -10,7 +10,7 @@
  * implied.  See the License for the specific language governing
  * permissions and limitations under the License.
  */
-package org.hornetq.amqp.test.minimal;
+package org.hornetq.amqp.test.minimalserver;
 
 
 import java.net.InetSocketAddress;
@@ -37,7 +37,7 @@ import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import org.hornetq.amqp.dealer.AMQPConnection;
-import org.hornetq.amqp.dealer.impl.ProtonConnectionFactory;
+import org.hornetq.amqp.dealer.protonimpl.server.ProtonServerConnectionFactory;
 import org.hornetq.amqp.dealer.util.ByteUtil;
 import org.hornetq.amqp.dealer.util.DebugInfo;
 
@@ -72,13 +72,16 @@ public class MinimalServer
 
    private String host;
 
+   private boolean sasl;
+
    // 5672 is the default here
    private int port;
 
-   public synchronized void start(String host, int port) throws Exception
+   public synchronized void start(String host, int port, boolean sasl) throws Exception
    {
       this.host = host;
       this.port = port;
+      this.sasl = sasl;
 
       if (channelClazz != null)
       {
@@ -138,7 +141,7 @@ public class MinimalServer
 
          if (connection == null)
          {
-            connection = ProtonConnectionFactory.getFactory().createConnection(new MinimalConnectionSPI(ctx.channel()));
+            connection = ProtonServerConnectionFactory.getFactory().createConnection(new MinimalConnectionSPI(ctx.channel()), sasl);
          }
 
 
@@ -189,7 +192,7 @@ public class MinimalServer
       MinimalServer server = new MinimalServer();
       try
       {
-         server.start("127.0.0.1", 5672);
+         server.start("127.0.0.1", 5672, true);
 
 
          while (true)

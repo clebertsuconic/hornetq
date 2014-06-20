@@ -28,7 +28,7 @@ import java.util.ArrayList;
 
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
-import org.hornetq.amqp.test.minimal.MinimalServer;
+import org.hornetq.amqp.test.minimalserver.MinimalServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -47,7 +47,7 @@ public class ProtonTest
    @Before
    public void setUp() throws Exception
    {
-      server.start("127.0.0.1", 5672);
+      server.start("127.0.0.1", 5672, true);
       connection = createConnection();
 
    }

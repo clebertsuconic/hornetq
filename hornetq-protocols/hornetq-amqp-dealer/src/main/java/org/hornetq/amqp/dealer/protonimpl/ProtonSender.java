@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer.impl;
+package org.hornetq.amqp.dealer.protonimpl;
 
 import java.util.Map;
 
@@ -29,6 +29,7 @@ import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.impl.LinkImpl;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 import org.hornetq.amqp.dealer.util.NettyWritable;
 import org.hornetq.amqp.dealer.util.ProtonServerMessage;
@@ -44,12 +45,12 @@ public class ProtonSender implements ProtonDeliveryHandler
    private static final Symbol COPY = Symbol.valueOf("copy");
    private final ProtonSessionImpl protonSession;
    private final Sender sender;
-   private final ProtonConnectionImpl connection;
+   private final ProtonAbstractConnectionImpl connection;
    private Object brokerConsumer;
    private boolean closed = false;
    private final ProtonSessionSPI sessionSPI;
 
-   public ProtonSender(ProtonConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
+   public ProtonSender(ProtonAbstractConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
    {
       this.connection = connection;
       this.sender = sender;

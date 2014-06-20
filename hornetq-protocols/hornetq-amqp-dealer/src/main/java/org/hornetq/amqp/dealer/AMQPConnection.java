@@ -36,5 +36,4 @@ public interface AMQPConnection
     */
    int inputBuffer(ByteBuf buffer);
 
-
 }

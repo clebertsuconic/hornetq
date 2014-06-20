@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.test.minimal;
+package org.hornetq.amqp.test.minimalserver;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;

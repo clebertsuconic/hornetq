@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 
 import io.netty.buffer.ByteBuf;
 import org.apache.qpid.proton.amqp.Binary;
-import org.hornetq.amqp.dealer.impl.ProtonSessionImpl;
+import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.util.ProtonServerMessage;
 
 /**

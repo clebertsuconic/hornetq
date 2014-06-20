@@ -13,13 +13,20 @@
 
 package org.hornetq.amqp.dealer;
 
-import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 
 /**
+ * This is valid only on a client connection.
  * @author Clebert Suconic
  */
 
-public abstract class AMQPConnectionFactory
+public interface AMQPClientConnection extends AMQPConnection
 {
-   public abstract AMQPConnection createConnection(ProtonConnectionSPI spi, boolean sasl);
+   /**
+    * This will send an open and block for its return on AMQP protocol.
+    * @throws Exception
+    */
+   void clientOpen() throws Exception;
+
+   AMQPClientSession createClientSession() throws HornetQAMQPException;
 }

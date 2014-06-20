@@ -11,15 +11,14 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer;
+package org.hornetq.amqp.dealer.protonimpl.client;
 
-import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
+import org.hornetq.amqp.dealer.AMQPClientSender;
 
 /**
  * @author Clebert Suconic
  */
 
-public abstract class AMQPConnectionFactory
+public class ProtonClientSender implements AMQPClientSender
 {
-   public abstract AMQPConnection createConnection(ProtonConnectionSPI spi, boolean sasl);
 }

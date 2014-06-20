@@ -11,26 +11,13 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer.impl;
-
-import org.hornetq.amqp.dealer.AMQPConnection;
-import org.hornetq.amqp.dealer.AMQPConnectionFactory;
-import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
+package org.hornetq.amqp.dealer;
 
 /**
  * @author Clebert Suconic
  */
 
-public class ProtonConnectionFactory extends AMQPConnectionFactory
+public interface AMQPClientSession
 {
-   private static final AMQPConnectionFactory theInstance = new ProtonConnectionFactory();
-   public static AMQPConnectionFactory getFactory()
-   {
-      return theInstance;
-   }
-
-   public AMQPConnection createConnection(ProtonConnectionSPI spi)
-   {
-      return new ProtonConnectionImpl(spi);
-   }
+   AMQPClientSender createProducer(String address);
 }

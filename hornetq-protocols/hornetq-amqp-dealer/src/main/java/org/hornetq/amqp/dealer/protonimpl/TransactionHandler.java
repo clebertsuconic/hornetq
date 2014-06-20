@@ -10,7 +10,7 @@
  * implied.  See the License for the specific language governing
  * permissions and limitations under the License.
  */
-package org.hornetq.amqp.dealer.impl;
+package org.hornetq.amqp.dealer.protonimpl;
 
 import io.netty.buffer.ByteBuf;
 import org.apache.qpid.proton.amqp.Binary;
@@ -26,6 +26,7 @@ import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.message.Message;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 
 /**
