@@ -31,8 +31,9 @@ public class ProtonClientSessionImpl extends ProtonSessionImpl implements AMQPCl
       super(sessionSPI, connection, session);
    }
 
-   public AMQPClientSender createProducer(String address)
+   public AMQPClientSender createSender(String address)
    {
+
       return null;
    }
 }

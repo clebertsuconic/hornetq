@@ -53,6 +53,7 @@ public class SimpleClientTest
       clientConnection.clientOpen();
 
       AMQPClientSession session = clientConnection.createClientSession();
+      session.createSender("Test");
 
 
 

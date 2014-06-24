@@ -19,5 +19,5 @@ package org.hornetq.amqp.dealer;
 
 public interface AMQPClientSession
 {
-   AMQPClientSender createProducer(String address);
+   AMQPClientSender createSender(String address);
 }
