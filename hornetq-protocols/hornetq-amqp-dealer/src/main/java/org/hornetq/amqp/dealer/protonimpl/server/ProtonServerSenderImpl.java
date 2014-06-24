@@ -11,7 +11,7 @@
  * permissions and limitations under the License.
  */
 
-package org.hornetq.amqp.dealer.protonimpl;
+package org.hornetq.amqp.dealer.protonimpl.server;
 
 import java.util.Map;
 
@@ -30,34 +30,30 @@ import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.impl.LinkImpl;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
+import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
+import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
+import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 import org.hornetq.amqp.dealer.util.NettyWritable;
 import org.hornetq.amqp.dealer.util.ProtonServerMessage;
+import org.apache.qpid.proton.amqp.messaging.Source;
 
 /**
- * A this is a wrapper around a HornetQ ServerConsumer for handling outgoing messages and incoming acks via a Proton Sender
- *
- * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
+ * @author Clebert Suconic
  */
-public class ProtonSender implements ProtonDeliveryHandler
+
+public class ProtonServerSenderImpl extends AbstractProtonSender
 {
+
    private static final Symbol SELECTOR = Symbol.getSymbol("jms-selector");
    private static final Symbol COPY = Symbol.valueOf("copy");
-   private final ProtonSessionImpl protonSession;
-   private final Sender sender;
-   private final ProtonAbstractConnectionImpl connection;
+
    private Object brokerConsumer;
-   private boolean closed = false;
-   private final ProtonSessionSPI sessionSPI;
 
-   public ProtonSender(ProtonAbstractConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
+   public ProtonServerSenderImpl(ProtonAbstractConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
    {
-      this.connection = connection;
-      this.sender = sender;
-      this.protonSession = protonSession;
-      this.sessionSPI = server;
+      super(connection, sender, protonSession, server);
    }
-
 
    public Object getBrokerConsumer()
    {
@@ -65,11 +61,11 @@ public class ProtonSender implements ProtonDeliveryHandler
    }
 
    /*
-   * start the session
-   * */
+* start the session
+* */
    public void start() throws HornetQAMQPException
    {
-      sessionSPI.start();
+      super.start();
       // protonSession.getServerSession().start();
 
       //todo add flow control
@@ -85,12 +81,15 @@ public class ProtonSender implements ProtonDeliveryHandler
       }
    }
 
-   /*
-   * create the actual underlying HornetQ Server Consumer
-   * */
-   public void init() throws HornetQAMQPException
+   /**
+    * create the actual underlying HornetQ Server Consumer
+    * */
+   @Override
+   public void initialise() throws HornetQAMQPException
    {
-      org.apache.qpid.proton.amqp.messaging.Source source = (org.apache.qpid.proton.amqp.messaging.Source) sender.getRemoteSource();
+      super.initialise();
+
+      Source source = (Source) sender.getRemoteSource();
 
       String queue;
 
@@ -153,81 +152,11 @@ public class ProtonSender implements ProtonDeliveryHandler
    * */
    public void close() throws HornetQAMQPException
    {
-      closed = true;
-      protonSession.removeConsumer(brokerConsumer);
+      super.close();
       sessionSPI.closeConsumer(brokerConsumer);
    }
 
-   /*
-   * handle an out going message from HornetQ, send via the Proton Sender
-   * */
-   public int handleDelivery(Object message, int deliveryCount)
-   {
-      if (closed)
-      {
-         System.err.println("Message can't be delivered as it's closed");
-         return 0;
-      }
 
-      //presettle means we can ack the message on the dealer side before we send it, i.e. for browsers
-      boolean preSettle = sender.getRemoteSenderSettleMode() == SenderSettleMode.SETTLED;
-      //we only need a tag if we are going to ack later
-      byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
-      //encode the message
-      ProtonServerMessage serverMessage = null;
-      try
-      {
-         // This can be done a lot better here
-         serverMessage = sessionSPI.encodeMessage(message, deliveryCount);
-      }
-      catch (Throwable e)
-      {
-         e.printStackTrace();
-      }
-
-      ByteBuf nettyBuffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
-      try
-      {
-         serverMessage.encode(new NettyWritable(nettyBuffer));
-
-         int size = nettyBuffer.writerIndex();
-
-         synchronized (connection.getTrio().getLock())
-         {
-            final Delivery delivery;
-            delivery = sender.delivery(tag, 0, tag.length);
-            delivery.setContext(message);
-
-            // this will avoid a copy.. patch provided by Norman using buffer.array()
-            sender.send(nettyBuffer.array(), nettyBuffer.arrayOffset() + nettyBuffer.readerIndex(), nettyBuffer.readableBytes());
-
-            ((LinkImpl) sender).addCredit(1);
-
-            if (preSettle)
-            {
-               delivery.settle();
-            }
-            else
-            {
-               sender.advance();
-            }
-
-            connection.getTrio().dispatch();
-         }
-
-
-         return size;
-      }
-      finally
-      {
-         nettyBuffer.release();
-      }
-   }
-
-   @Override
-   /*
-   * handle an incoming Ack from Proton, basically pass to HornetQ to handle
-   * */
    public void onMessage(Delivery delivery) throws HornetQAMQPException
    {
       Object message = delivery.getContext();
@@ -293,16 +222,79 @@ public class ProtonSender implements ProtonDeliveryHandler
       }
    }
 
-   /*
-   * check the state of the consumer, i.e. are there any more messages. only really needed for browsers?
-   * */
+   @Override
    public synchronized void checkState()
    {
+      super.checkState();
       sessionSPI.resumeDelivery(brokerConsumer);
    }
 
-   public Sender getSender()
+
+   /**
+    * handle an out going message from HornetQ, send via the Proton Sender
+    * */
+   public int handleDelivery(Object message, int deliveryCount)
    {
-      return sender;
+      if (closed)
+      {
+         System.err.println("Message can't be delivered as it's closed");
+         return 0;
+      }
+
+      //presettle means we can ack the message on the dealer side before we send it, i.e. for browsers
+      boolean preSettle = sender.getRemoteSenderSettleMode() == SenderSettleMode.SETTLED;
+      //we only need a tag if we are going to ack later
+      byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
+      //encode the message
+      ProtonServerMessage serverMessage = null;
+      try
+      {
+         // This can be done a lot better here
+         serverMessage = sessionSPI.encodeMessage(message, deliveryCount);
+      }
+      catch (Throwable e)
+      {
+         e.printStackTrace();
+      }
+
+      ByteBuf nettyBuffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
+      try
+      {
+         serverMessage.encode(new NettyWritable(nettyBuffer));
+
+         int size = nettyBuffer.writerIndex();
+
+         synchronized (connection.getTrio().getLock())
+         {
+            final Delivery delivery;
+            delivery = sender.delivery(tag, 0, tag.length);
+            delivery.setContext(message);
+
+            // this will avoid a copy.. patch provided by Norman using buffer.array()
+            sender.send(nettyBuffer.array(), nettyBuffer.arrayOffset() + nettyBuffer.readerIndex(), nettyBuffer.readableBytes());
+
+            ((LinkImpl) sender).addCredit(1);
+
+            if (preSettle)
+            {
+               delivery.settle();
+            }
+            else
+            {
+               sender.advance();
+            }
+
+            connection.getTrio().dispatch();
+         }
+
+
+         return size;
+      }
+      finally
+      {
+         nettyBuffer.release();
+      }
    }
+
+
 }

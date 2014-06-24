@@ -18,6 +18,7 @@ import java.util.Map;
 
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Receiver;
+import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPInternalErrorException;
@@ -28,7 +29,7 @@ import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  *         4/10/13
  */
-public class ProtonSessionImpl extends ProtonInitializable
+public abstract class ProtonSessionImpl extends ProtonInitializable
 {
    protected final ProtonAbstractConnectionImpl connection;
 
@@ -38,9 +39,9 @@ public class ProtonSessionImpl extends ProtonInitializable
 
    private long currentTag = 0;
 
-   protected Map<Object, ProtonReceiver> receivers = new HashMap<Object, ProtonReceiver>();
+   protected Map<Receiver, ProtonReceiver> receivers = new HashMap<Receiver, ProtonReceiver>();
 
-   protected Map<Object, ProtonSender> senders = new HashMap<Object, ProtonSender>();
+   protected Map<Sender, AbstractProtonSender> senders = new HashMap<Sender, AbstractProtonSender>();
 
    protected boolean closed = false;
 
@@ -69,7 +70,7 @@ public class ProtonSessionImpl extends ProtonInitializable
 
    public void disconnect(Object consumer, String queueName)
    {
-      ProtonSender protonConsumer = senders.remove(consumer);
+      AbstractProtonSender protonConsumer = senders.remove(consumer);
       if (protonConsumer != null)
       {
          try
@@ -114,7 +115,7 @@ public class ProtonSessionImpl extends ProtonInitializable
          }
       }
       receivers.clear();
-      for (ProtonSender protonConsumer : senders.values())
+      for (AbstractProtonSender protonConsumer : senders.values())
       {
          try
          {
@@ -140,12 +141,12 @@ public class ProtonSessionImpl extends ProtonInitializable
       closed = true;
    }
 
-   public void removeConsumer(Object brokerConsumer) throws HornetQAMQPException
+   public void removeSender(Sender sender) throws HornetQAMQPException
    {
-      senders.remove(brokerConsumer);
+      senders.remove(sender);
    }
 
-   public void removeProducer(Receiver receiver)
+   public void removeReceiver(Receiver receiver)
    {
       receivers.remove(receiver);
    }

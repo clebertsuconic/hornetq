@@ -43,7 +43,7 @@ public class ProtonInitializable
    }
 
 
-   protected void initialise()
+   protected void initialise() throws HornetQAMQPException
    {
       if (!initialized)
       {

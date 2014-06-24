@@ -25,18 +25,26 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 
+import io.hawtjms.jms.JmsConnectionFactory;
+import io.hawtjms.jms.JmsQueue;
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
+import org.hornetq.amqp.test.minimalserver.DumbServer;
 import org.hornetq.amqp.test.minimalserver.MinimalServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /**
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  */
+@RunWith(Parameterized.class)
 public class ProtonTest
 {
    protected String address = "exampleQueue";
@@ -44,9 +52,25 @@ public class ProtonTest
 
    private MinimalServer server = new MinimalServer();
 
+   private final boolean useHawtJMS;
+
+
+   @Parameterized.Parameters(name = "useHawt={0}")
+   public static Collection<Object[]> data()
+   {
+      return Arrays.asList(new Object[][]{{Boolean.TRUE}, {Boolean.FALSE}});
+   }
+
+   public ProtonTest(boolean useHawtJMS)
+   {
+      this.useHawtJMS = useHawtJMS;
+   }
+
+
    @Before
    public void setUp() throws Exception
    {
+      DumbServer.clear();
       server.start("127.0.0.1", 5672, true);
       connection = createConnection();
 
@@ -61,22 +85,8 @@ public class ProtonTest
       }
 
       server.stop();
+      DumbServer.clear();
    }
-
-
-   /*
-   // Uncomment testLoopBrowser to validate the hunging on the test
-   @Test
-   public void testLoopBrowser() throws Throwable
-   {
-      for (int i = 0 ; i < 1000; i++)
-      {
-         System.out.println("#test " + i);
-         testBrowser();
-         tearDown();
-         setUp();
-      }
-   } */
 
    @Test
    public void testMessagesReceivedInParallel() throws Throwable
@@ -106,7 +116,7 @@ public class ProtonTest
                {
                   try
                   {
-                     BytesMessage m = (BytesMessage) consumer.receive(50000);
+                     BytesMessage m = (BytesMessage) consumer.receive(1000);
                      if (count % 1000 == 0)
                      {
                         System.out.println("Count = " + count + ", property=" + m.getStringProperty("XX"));
@@ -187,7 +197,6 @@ public class ProtonTest
          message.setString("str", "str" + i);
          p.send(message);
       }
-      connection.start();
       MessageConsumer messageConsumer = session.createConsumer(queue);
       for (int i = 0; i < 10; i++)
       {
@@ -196,7 +205,8 @@ public class ProtonTest
          Assert.assertEquals(i, m.getInt("x"));
          Assert.assertEquals("str" + i, m.getString("str"));
       }
-      connection.close();
+
+      Assert.assertNull(messageConsumer.receiveNoWait());
    }
 
    @Test
@@ -249,20 +259,34 @@ public class ProtonTest
       return connection;
    }
 
-   protected ConnectionFactory createConnectionFactory()
-   {
-      return new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
-   }
-
    protected int getNumberOfMessages()
    {
       return 10000;
    }
 
 
+   protected ConnectionFactory createConnectionFactory()
+   {
+      if (useHawtJMS)
+      {
+         return new JmsConnectionFactory("aaaaaaaa", "aaaaaaa", "amqp://localhost:5672");
+      }
+      else
+      {
+         return new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
+      }
+   }
+
    protected Queue createQueue()
    {
-      return new QueueImpl(address);
+      if (useHawtJMS)
+      {
+         return new JmsQueue(address);
+      }
+      else
+      {
+         return new QueueImpl(address);
+      }
    }
 
 }

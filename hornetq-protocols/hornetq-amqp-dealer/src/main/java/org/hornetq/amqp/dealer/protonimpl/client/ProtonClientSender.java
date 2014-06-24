@@ -13,12 +13,30 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import org.apache.qpid.proton.engine.Delivery;
+import org.apache.qpid.proton.engine.Sender;
 import org.hornetq.amqp.dealer.AMQPClientSender;
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
+import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
+import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
+import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
 
 /**
  * @author Clebert Suconic
  */
 
-public class ProtonClientSender implements AMQPClientSender
+public class ProtonClientSender extends AbstractProtonSender implements AMQPClientSender
 {
+
+   public ProtonClientSender(ProtonAbstractConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
+   {
+      super(connection, sender, protonSession, server);
+   }
+
+   @Override
+   public void onMessage(Delivery delivery) throws HornetQAMQPException
+   {
+
+   }
 }

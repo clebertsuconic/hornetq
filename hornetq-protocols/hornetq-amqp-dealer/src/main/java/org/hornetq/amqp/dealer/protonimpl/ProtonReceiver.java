@@ -124,7 +124,7 @@ public class ProtonReceiver implements ProtonDeliveryHandler
    @Override
    public void close() throws HornetQAMQPException
    {
-      protonSession.removeProducer(receiver);
+      protonSession.removeReceiver(receiver);
    }
 
    public void init() throws HornetQAMQPException

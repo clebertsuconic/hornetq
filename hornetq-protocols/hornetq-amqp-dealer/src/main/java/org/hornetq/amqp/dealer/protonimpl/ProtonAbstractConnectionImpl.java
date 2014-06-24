@@ -137,7 +137,7 @@ public abstract class ProtonAbstractConnectionImpl extends ProtonInitializable i
       }
 
       @Override
-      protected void connectionOpened(Connection connection)
+      protected void connectionOpened(Connection connection) throws Exception
       {
          initialise();
       }

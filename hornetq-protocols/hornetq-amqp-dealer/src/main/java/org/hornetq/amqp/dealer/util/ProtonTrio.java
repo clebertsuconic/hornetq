@@ -212,11 +212,18 @@ public abstract class ProtonTrio
    {
       synchronized (lock)
       {
-         Event ev;
-         while ((ev = collector.peek()) != null)
+         try
          {
-            dispatch(ev);
-            collector.pop();
+            Event ev;
+            while ((ev = collector.peek()) != null)
+            {
+               dispatch(ev);
+               collector.pop();
+            }
+         }
+         catch (Exception e)
+         {
+            connection.setCondition(new ErrorCondition(AmqpError.INTERNAL_ERROR, e.getMessage()));
          }
 
 
@@ -226,7 +233,7 @@ public abstract class ProtonTrio
    }
 
 
-   protected void onRemoteState(Connection connection)
+   protected void onRemoteState(Connection connection) throws Exception
    {
       if (connection.getRemoteState() == EndpointState.ACTIVE)
       {
@@ -240,9 +247,9 @@ public abstract class ProtonTrio
       }
    }
 
-   protected abstract void connectionOpened(Connection connection);
+   protected abstract void connectionOpened(Connection connection) throws Exception;
 
-   protected abstract void connectionClosed(Connection connection);
+   protected abstract void connectionClosed(Connection connection) throws Exception;
 
    protected void onRemoteState(Session session)
    {
@@ -325,7 +332,7 @@ public abstract class ProtonTrio
 
    protected abstract void onTransport(Transport transport);
 
-   private void dispatch(Event event)
+   private void dispatch(Event event) throws Exception
    {
 
       if (inDispatch.get() != null)

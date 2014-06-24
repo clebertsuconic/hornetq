@@ -13,15 +13,18 @@
 
 package org.hornetq.amqp.dealer.protonimpl.server;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.qpid.proton.amqp.transaction.Coordinator;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonReceiver;
-import org.hornetq.amqp.dealer.protonimpl.ProtonSender;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.protonimpl.TransactionHandler;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
@@ -38,6 +41,8 @@ public class ServerProtonSessionImpl extends ProtonSessionImpl
       super(sessionSPI, connection, session);
    }
 
+   protected Map<Object, AbstractProtonSender> serverSenders = new HashMap<Object, AbstractProtonSender>();
+
 
    /**
     * The consumer object from the broker or the key used to store the sender
@@ -48,10 +53,10 @@ public class ServerProtonSessionImpl extends ProtonSessionImpl
     */
    public int serverDelivery(Object message, Object consumer, int deliveryCount)
    {
-      ProtonSender protonConsumer = senders.get(consumer);
-      if (protonConsumer != null)
+      ProtonServerSenderImpl protonSender = (ProtonServerSenderImpl)serverSenders.get(consumer);
+      if (protonSender != null)
       {
-         return protonConsumer.handleDelivery(message, deliveryCount);
+         return protonSender.handleDelivery(message, deliveryCount);
       }
       return 0;
    }
@@ -66,22 +71,32 @@ public class ServerProtonSessionImpl extends ProtonSessionImpl
 
    public void addSender(Sender sender) throws HornetQAMQPException
    {
-      ProtonSender protonConsumer = new ProtonSender(connection, sender, this, sessionSPI);
+      ProtonServerSenderImpl protonSender = new ProtonServerSenderImpl(connection, sender, this, sessionSPI);
 
       try
       {
-         protonConsumer.init();
-         senders.put(protonConsumer.getBrokerConsumer(), protonConsumer);
-         sender.setContext(protonConsumer);
+         protonSender.initialise();
+         senders.put(sender, protonSender);
+         serverSenders.put(protonSender.getBrokerConsumer(), protonSender);
+         sender.setContext(protonSender);
          sender.open();
-         protonConsumer.start();
+         protonSender.start();
       }
       catch (HornetQAMQPException e)
       {
-         senders.remove(protonConsumer.getBrokerConsumer());
+         senders.remove(sender);
          sender.setSource(null);
          sender.setCondition(new ErrorCondition(e.getAmqpError(), e.getMessage()));
          sender.close();
+      }
+   }
+
+   public void removeSender(Sender sender) throws HornetQAMQPException
+   {
+      ProtonServerSenderImpl senderRemoved = (ProtonServerSenderImpl)senders.remove(sender);
+      if (senderRemoved != null)
+      {
+         serverSenders.remove(senderRemoved.getBrokerConsumer());
       }
    }
 
@@ -90,10 +105,10 @@ public class ServerProtonSessionImpl extends ProtonSessionImpl
    {
       try
       {
-         ProtonReceiver producer = new ProtonReceiver(sessionSPI, connection, this, receiver);
-         producer.init();
-         receivers.put(receiver, producer);
-         receiver.setContext(producer);
+         ProtonReceiver protonReceiver = new ProtonReceiver(sessionSPI, connection, this, receiver);
+         protonReceiver.init();
+         receivers.put(receiver, protonReceiver);
+         receiver.setContext(protonReceiver);
          receiver.open();
       }
       catch (HornetQAMQPException e)

@@ -41,6 +41,16 @@ public class DumbServer
       return q;
    }
 
+   public static void clear()
+   {
+      for (BlockingDeque<Object> queue : maps.values())
+      {
+         // We clear the queues just in case there is a component holding it
+         queue.clear();
+      }
+      maps.clear();
+   }
+
    public static void put(String queue, Object message)
    {
       getQueue(queue).add(message);

@@ -140,6 +140,7 @@ public class MinimalSessionSPI implements ProtonSessionSPI
    @Override
    public void resumeDelivery(Object consumer)
    {
+      System.out.println("Resume delivery!!!");
       ((Consumer)consumer).start();
    }
 
@@ -169,6 +170,7 @@ public class MinimalSessionSPI implements ProtonSessionSPI
 
       public void close()
       {
+         System.out.println("Closing!!!");
          running = false;
          if (thread != null)
          {
@@ -184,11 +186,12 @@ public class MinimalSessionSPI implements ProtonSessionSPI
          thread = null;
       }
 
-      public void start()
+      public synchronized void start()
       {
          running = true;
          if (thread == null)
          {
+            System.out.println("Start!!!");
             thread = new Thread()
             {
                public void run()
@@ -198,6 +201,7 @@ public class MinimalSessionSPI implements ProtonSessionSPI
                      while (running)
                      {
                         Object msg = queue.poll(1, TimeUnit.SECONDS);
+
                         if (msg != null)
                         {
                            session.serverDelivery(msg, Consumer.this, 1);
