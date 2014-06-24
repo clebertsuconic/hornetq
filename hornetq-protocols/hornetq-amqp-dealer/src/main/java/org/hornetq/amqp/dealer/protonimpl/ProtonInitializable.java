@@ -37,13 +37,13 @@ public class ProtonInitializable
    }
 
 
-   protected boolean isInitialized()
+   public boolean isInitialized()
    {
       return initialized;
    }
 
 
-   protected void initialise() throws HornetQAMQPException
+   public void initialise() throws HornetQAMQPException
    {
       if (!initialized)
       {

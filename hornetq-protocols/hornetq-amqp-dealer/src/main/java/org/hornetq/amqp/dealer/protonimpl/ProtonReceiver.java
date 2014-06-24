@@ -47,7 +47,14 @@ public class ProtonReceiver implements ProtonDeliveryHandler
       this.connection = connection;
       this.protonSession = protonSession;
       this.receiver = receiver;
-      this.address = receiver.getRemoteTarget().getAddress();
+      if (receiver.getRemoteTarget() != null)
+      {
+         this.address = receiver.getRemoteTarget().getAddress();
+      }
+      else
+      {
+         this.address = null;
+      }
       this.sessionSPI = sessionSPI;
    }
 
@@ -130,35 +137,39 @@ public class ProtonReceiver implements ProtonDeliveryHandler
    public void init() throws HornetQAMQPException
    {
       org.apache.qpid.proton.amqp.messaging.Target target = (org.apache.qpid.proton.amqp.messaging.Target) receiver.getRemoteTarget();
-      if (target.getDynamic())
-      {
-         //if dynamic we have to create the node (queue) and set the address on the target, the node is temporary and
-         // will be deleted on closing of the session
-         String queue = sessionSPI.tempQueueName();
 
-
-         sessionSPI.createTemporaryQueue(queue);
-         target.setAddress(queue.toString());
-      }
-      else
+      if (target != null)
       {
-         //if not dynamic then we use the targets address as the address to forward the messages to, however there has to
-         //be a queue bound to it so we nee to check this.
-         String address = target.getAddress();
-         if (address == null)
+         if (target.getDynamic())
          {
-            throw HornetQAMQPProtocolMessageBundle.BUNDLE.targetAddressNotSet();
+            //if dynamic we have to create the node (queue) and set the address on the target, the node is temporary and
+            // will be deleted on closing of the session
+            String queue = sessionSPI.tempQueueName();
+
+
+            sessionSPI.createTemporaryQueue(queue);
+            target.setAddress(queue.toString());
          }
-         try
+         else
          {
-            if (!sessionSPI.queueQuery(address))
+            //if not dynamic then we use the targets address as the address to forward the messages to, however there has to
+            //be a queue bound to it so we nee to check this.
+            String address = target.getAddress();
+            if (address == null)
             {
-               throw HornetQAMQPProtocolMessageBundle.BUNDLE.addressDoesntExist();
+               throw HornetQAMQPProtocolMessageBundle.BUNDLE.targetAddressNotSet();
             }
-         }
-         catch (Exception e)
-         {
-            throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorFindingTemporaryQueue(e.getMessage());
+            try
+            {
+               if (!sessionSPI.queueQuery(address))
+               {
+                  throw HornetQAMQPProtocolMessageBundle.BUNDLE.addressDoesntExist();
+               }
+            }
+            catch (Exception e)
+            {
+               throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorFindingTemporaryQueue(e.getMessage());
+            }
          }
       }
    }

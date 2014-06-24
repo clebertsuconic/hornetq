@@ -14,6 +14,7 @@
 package org.hornetq.amqp.test;
 
 import org.hornetq.amqp.dealer.AMQPClientConnection;
+import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.AMQPClientSession;
 import org.hornetq.amqp.test.minimalclient.SimpleAMQPConnector;
 import org.hornetq.amqp.test.minimalserver.MinimalServer;
@@ -53,7 +54,7 @@ public class SimpleClientTest
       clientConnection.clientOpen();
 
       AMQPClientSession session = clientConnection.createClientSession();
-      session.createSender("Test");
+      AMQPClientSender clientSender = session.createSender("Test");
 
 
 

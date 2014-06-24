@@ -13,11 +13,13 @@
 
 package org.hornetq.amqp.dealer;
 
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+
 /**
  * @author Clebert Suconic
  */
 
 public interface AMQPClientSession
 {
-   AMQPClientSender createSender(String address);
+   AMQPClientSender createSender(String address) throws HornetQAMQPException;
 }

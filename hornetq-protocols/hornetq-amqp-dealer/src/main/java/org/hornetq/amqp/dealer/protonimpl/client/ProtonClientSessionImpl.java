@@ -13,12 +13,16 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import org.apache.qpid.proton.amqp.messaging.Target;
+import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.AMQPClientSession;
+import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
+import org.hornetq.amqp.dealer.util.FutureRunnable;
 
 /**
  * @author Clebert Suconic
@@ -31,9 +35,25 @@ public class ProtonClientSessionImpl extends ProtonSessionImpl implements AMQPCl
       super(sessionSPI, connection, session);
    }
 
-   public AMQPClientSender createSender(String address)
+   public AMQPClientSender createSender(String address) throws HornetQAMQPException
    {
+      FutureRunnable futureRunnable =  new FutureRunnable(1);
 
-      return null;
+      ProtonClientSender amqpSender;
+      synchronized (connection.getTrio().getLock())
+      {
+         Sender sender = session.sender(address);
+         Target target = new Target();
+         target.setAddress(address);
+         sender.setTarget(target);
+         amqpSender = new ProtonClientSender(connection, sender, this, sessionSPI);
+         amqpSender.afterInit(futureRunnable);
+         sender.setContext(amqpSender);
+         sender.open();
+         connection.getTrio().dispatch();
+      }
+
+      waitWithTimeout(futureRunnable);
+      return amqpSender;
    }
 }

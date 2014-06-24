@@ -159,7 +159,6 @@ public abstract class ProtonAbstractConnectionImpl extends ProtonInitializable i
       @Override
       protected void sessionOpened(Session session)
       {
-         System.out.println(ProtonAbstractConnectionImpl.this.getClass() + " Received session open " + session);
          try
          {
             ProtonAbstractConnectionImpl.this.getSession(session).initialise();
@@ -191,6 +190,7 @@ public abstract class ProtonAbstractConnectionImpl extends ProtonInitializable i
          }
          catch (Throwable e)
          {
+            e.printStackTrace();
             link.close();
             transport.setCondition(new ErrorCondition(AmqpError.ILLEGAL_STATE, e.getMessage()));
          }

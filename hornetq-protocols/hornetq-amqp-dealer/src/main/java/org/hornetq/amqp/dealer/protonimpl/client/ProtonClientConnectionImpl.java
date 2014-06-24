@@ -19,6 +19,7 @@ import org.hornetq.amqp.dealer.AMQPClientConnection;
 import org.hornetq.amqp.dealer.AMQPClientSession;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
+import org.hornetq.amqp.dealer.protonimpl.ProtonInitializable;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonConnectionSPI;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
@@ -83,6 +84,10 @@ public class ProtonClientConnectionImpl extends ProtonAbstractConnectionImpl imp
    @Override
    protected void remoteLinkOpened(Link link) throws HornetQAMQPException
    {
-
+      Object context = link.getContext();
+      if (context != null && context instanceof ProtonInitializable)
+      {
+         ((ProtonInitializable)context).initialise();
+      }
    }
 }
