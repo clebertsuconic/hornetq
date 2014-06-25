@@ -13,6 +13,13 @@
 
 package org.hornetq.amqp.dealer.protonimpl.server;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
+import org.apache.qpid.proton.amqp.Symbol;
+import org.apache.qpid.proton.amqp.messaging.Accepted;
+import org.apache.qpid.proton.amqp.messaging.Rejected;
+import org.apache.qpid.proton.amqp.transport.ErrorCondition;
+import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
@@ -72,6 +79,64 @@ public class ProtonServerReceiver extends ProtonAbstractReceiver
                throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorFindingTemporaryQueue(e.getMessage());
             }
          }
+      }
+   }
+
+   /*
+   * called when Proton receives a message to be delivered via a Delivery.
+   *
+   * This may be called more than once per deliver so we have to cache the buffer until we have received it all.
+   *
+   * */
+   public void onMessage(Delivery delivery) throws HornetQAMQPException
+   {
+      Receiver receiver;
+      try
+      {
+         receiver = ((Receiver) delivery.getLink());
+
+         if (!delivery.isReadable())
+         {
+            return;
+         }
+
+         ByteBuf buffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
+         try
+         {
+            synchronized (connection.getTrio().getLock())
+            {
+               int count = readDelivery(receiver, buffer);
+
+               // we keep reading until we get end of messages, i.e. -1
+               if (count == 0)
+               {
+                  // todo this is obviously incorrect, investigate return;
+               }
+
+               sessionSPI.serverSend(address, delivery.getMessageFormat(), buffer.nioBuffer());
+
+               receiver.advance();
+
+               receiver.flow(1);
+               delivery.disposition(Accepted.getInstance());
+               delivery.settle();
+
+            }
+         }
+         finally
+         {
+            buffer.release();
+         }
+      }
+      catch (Exception e)
+      {
+         e.printStackTrace();
+         Rejected rejected = new Rejected();
+         ErrorCondition condition = new ErrorCondition();
+         condition.setCondition(Symbol.valueOf("failed"));
+         condition.setDescription(e.getMessage());
+         rejected.setError(condition);
+         delivery.disposition(rejected);
       }
    }
 

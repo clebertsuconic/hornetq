@@ -13,9 +13,9 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
-import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractReceiver;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
@@ -30,5 +30,16 @@ public class ProtonClientReceiver extends ProtonAbstractReceiver
    {
       super(sessionSPI, connection, protonSession, receiver);
    }
+
+   /*
+   * called when Proton receives a message to be delivered via a Delivery.
+   *
+   * This may be called more than once per deliver so we have to cache the buffer until we have received it all.
+   *
+   * */
+   public void onMessage(Delivery delivery) throws HornetQAMQPException
+   {
+   }
+
 
 }
