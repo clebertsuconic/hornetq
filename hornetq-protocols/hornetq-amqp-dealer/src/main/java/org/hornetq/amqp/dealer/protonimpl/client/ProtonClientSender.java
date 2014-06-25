@@ -16,6 +16,7 @@ package org.hornetq.amqp.dealer.protonimpl.client;
 import org.apache.qpid.amqp_1_0.type.messaging.Accepted;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
+import org.apache.qpid.proton.message.Message;
 import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
@@ -47,4 +48,10 @@ public class ProtonClientSender extends AbstractProtonSender implements AMQPClie
          }
       }
    }
+
+   public void send(Message message)
+   {
+
+   }
+
 }

@@ -15,8 +15,6 @@ package org.hornetq.amqp.dealer.protonimpl.server;
 
 import java.util.Map;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.qpid.proton.amqp.DescribedType;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
@@ -27,14 +25,12 @@ import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
-import org.apache.qpid.proton.engine.impl.LinkImpl;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.logger.HornetQAMQPProtocolMessageBundle;
 import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
-import org.hornetq.amqp.dealer.util.NettyWritable;
 import org.hornetq.amqp.dealer.util.ProtonServerMessage;
 import org.apache.qpid.proton.amqp.messaging.Source;
 
@@ -241,10 +237,6 @@ public class ProtonServerSenderImpl extends AbstractProtonSender
          return 0;
       }
 
-      //presettle means we can ack the message on the dealer side before we send it, i.e. for browsers
-      boolean preSettle = sender.getRemoteSenderSettleMode() == SenderSettleMode.SETTLED;
-      //we only need a tag if we are going to ack later
-      byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
       //encode the message
       ProtonServerMessage serverMessage = null;
       try
@@ -257,43 +249,7 @@ public class ProtonServerSenderImpl extends AbstractProtonSender
          e.printStackTrace();
       }
 
-      ByteBuf nettyBuffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
-      try
-      {
-         serverMessage.encode(new NettyWritable(nettyBuffer));
-
-         int size = nettyBuffer.writerIndex();
-
-         synchronized (connection.getTrio().getLock())
-         {
-            final Delivery delivery;
-            delivery = sender.delivery(tag, 0, tag.length);
-            delivery.setContext(message);
-
-            // this will avoid a copy.. patch provided by Norman using buffer.array()
-            sender.send(nettyBuffer.array(), nettyBuffer.arrayOffset() + nettyBuffer.readerIndex(), nettyBuffer.readableBytes());
-
-            ((LinkImpl) sender).addCredit(1);
-
-            if (preSettle)
-            {
-               delivery.settle();
-            }
-            else
-            {
-               sender.advance();
-            }
-
-            connection.getTrio().dispatch();
-         }
-
-
-         return size;
-      }
-      finally
-      {
-         nettyBuffer.release();
-      }
+      return performSend(serverMessage, message);
    }
 
 

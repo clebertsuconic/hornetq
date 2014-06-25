@@ -13,10 +13,16 @@
 
 package org.hornetq.amqp.dealer.protonimpl;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
+import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
+import org.apache.qpid.proton.engine.impl.LinkImpl;
+import org.apache.qpid.proton.message.ProtonJMessage;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
+import org.hornetq.amqp.dealer.util.NettyWritable;
 
 /**
  * A this is a wrapper around a HornetQ ServerConsumer for handling outgoing messages and incoming acks via a Proton Sender
@@ -79,5 +85,51 @@ public abstract class AbstractProtonSender extends ProtonInitializable implement
    public Sender getSender()
    {
       return sender;
+   }
+
+   protected int performSend(ProtonJMessage serverMessage, Object context)
+   {
+      //presettle means we can ack the message on the dealer side before we send it, i.e. for browsers
+      boolean preSettle = sender.getRemoteSenderSettleMode() == SenderSettleMode.SETTLED;
+      //we only need a tag if we are going to ack later
+      byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
+
+      ByteBuf nettyBuffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
+      try
+      {
+         serverMessage.encode(new NettyWritable(nettyBuffer));
+
+         int size = nettyBuffer.writerIndex();
+
+         synchronized (connection.getTrio().getLock())
+         {
+            final Delivery delivery;
+            delivery = sender.delivery(tag, 0, tag.length);
+            delivery.setContext(context);
+
+            // this will avoid a copy.. patch provided by Norman using buffer.array()
+            sender.send(nettyBuffer.array(), nettyBuffer.arrayOffset() + nettyBuffer.readerIndex(), nettyBuffer.readableBytes());
+
+            ((LinkImpl) sender).addCredit(1);
+
+            if (preSettle)
+            {
+               delivery.settle();
+            }
+            else
+            {
+               sender.advance();
+            }
+
+            connection.getTrio().dispatch();
+         }
+
+
+         return size;
+      }
+      finally
+      {
+         nettyBuffer.release();
+      }
    }
 }
