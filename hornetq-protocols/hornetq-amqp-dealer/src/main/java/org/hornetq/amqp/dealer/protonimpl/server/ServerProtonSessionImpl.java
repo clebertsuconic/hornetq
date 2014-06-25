@@ -24,7 +24,7 @@ import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
-import org.hornetq.amqp.dealer.protonimpl.ProtonReceiver;
+import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractReceiver;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.protonimpl.TransactionHandler;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
@@ -105,8 +105,8 @@ public class ServerProtonSessionImpl extends ProtonSessionImpl
    {
       try
       {
-         ProtonReceiver protonReceiver = new ProtonReceiver(sessionSPI, connection, this, receiver);
-         protonReceiver.init();
+         ProtonAbstractReceiver protonReceiver = new ProtonServerReceiver(sessionSPI, connection, this, receiver);
+         protonReceiver.initialise();
          receivers.put(receiver, protonReceiver);
          receiver.setContext(protonReceiver);
          receiver.open();

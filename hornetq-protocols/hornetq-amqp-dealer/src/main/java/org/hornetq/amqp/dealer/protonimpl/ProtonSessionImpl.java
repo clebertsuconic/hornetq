@@ -39,7 +39,7 @@ public abstract class ProtonSessionImpl extends ProtonInitializable
 
    private long currentTag = 0;
 
-   protected Map<Receiver, ProtonReceiver> receivers = new HashMap<Receiver, ProtonReceiver>();
+   protected Map<Receiver, ProtonAbstractReceiver> receivers = new HashMap<Receiver, ProtonAbstractReceiver>();
 
    protected Map<Sender, AbstractProtonSender> senders = new HashMap<Sender, AbstractProtonSender>();
 
@@ -102,7 +102,7 @@ public abstract class ProtonSessionImpl extends ProtonInitializable
          return;
       }
 
-      for (ProtonReceiver protonProducer : receivers.values())
+      for (ProtonAbstractReceiver protonProducer : receivers.values())
       {
          try
          {
