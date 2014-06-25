@@ -53,15 +53,16 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
 
    protected int readDelivery(Receiver receiver, ByteBuf buffer)
    {
-      int count;
+      int initial = buffer.writerIndex();
       //todo an optimisation here would be to only use the buffer if we need more that one recv
       // optimization by norman
+      int count;
       while ((count = receiver.recv(buffer.array(), buffer.arrayOffset() + buffer.writerIndex(), buffer.writableBytes())) > 0)
       {
          // Increment the writer index by the number of bytes written into it while calling recv.
          buffer.writerIndex(buffer.writerIndex() + count);
       }
-      return count;
+      return buffer.writerIndex() - initial;
    }
 
    @Override

@@ -90,7 +90,7 @@ public class ProtonServerSenderImpl extends AbstractProtonSender
       String queue;
 
       String selector = null;
-      Map filter = source.getFilter();
+      Map filter = source == null ? null : source.getFilter();
       if (filter != null)
       {
          DescribedType value = (DescribedType) filter.get(SELECTOR);
@@ -100,46 +100,49 @@ public class ProtonServerSenderImpl extends AbstractProtonSender
          }
       }
 
-      if (source.getDynamic())
+      if (source != null)
       {
-         //if dynamic we have to create the node (queue) and set the address on the target, the node is temporary and
-         // will be deleted on closing of the session
-         queue = java.util.UUID.randomUUID().toString();
+         if (source.getDynamic())
+         {
+            //if dynamic we have to create the node (queue) and set the address on the target, the node is temporary and
+            // will be deleted on closing of the session
+            queue = java.util.UUID.randomUUID().toString();
+            try
+            {
+               sessionSPI.createTemporaryQueue(queue);
+               //protonSession.getServerSession().createQueue(queue, queue, null, true, false);
+            }
+            catch (Exception e)
+            {
+               throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorCreatingTemporaryQueue(e.getMessage());
+            }
+            source.setAddress(queue);
+         }
+         else
+         {
+            //if not dynamic then we use the targets address as the address to forward the messages to, however there has to
+            //be a queue bound to it so we nee to check this.
+            queue = source.getAddress();
+            if (queue == null)
+            {
+               throw HornetQAMQPProtocolMessageBundle.BUNDLE.sourceAddressNotSet();
+            }
+
+            if (!sessionSPI.queueQuery(queue))
+            {
+               throw HornetQAMQPProtocolMessageBundle.BUNDLE.sourceAddressDoesntExist();
+            }
+         }
+
+         boolean browseOnly = source.getDistributionMode() != null && source.getDistributionMode().equals(COPY);
          try
          {
-            sessionSPI.createTemporaryQueue(queue);
-            //protonSession.getServerSession().createQueue(queue, queue, null, true, false);
+            brokerConsumer = sessionSPI.createConsumer(queue, selector, browseOnly);
          }
          catch (Exception e)
          {
-            throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorCreatingTemporaryQueue(e.getMessage());
+            throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorCreatingHornetQConsumer(e.getMessage());
          }
-         source.setAddress(queue);
-      }
-      else
-      {
-         //if not dynamic then we use the targets address as the address to forward the messages to, however there has to
-         //be a queue bound to it so we nee to check this.
-         queue = source.getAddress();
-         if (queue == null)
-         {
-            throw HornetQAMQPProtocolMessageBundle.BUNDLE.sourceAddressNotSet();
-         }
-
-         if (!sessionSPI.queueQuery(queue))
-         {
-            throw HornetQAMQPProtocolMessageBundle.BUNDLE.sourceAddressDoesntExist();
-         }
-      }
-
-      boolean browseOnly = source.getDistributionMode() != null && source.getDistributionMode().equals(COPY);
-      try
-      {
-         brokerConsumer = sessionSPI.createConsumer(queue, selector, browseOnly);
-      }
-      catch (Exception e)
-      {
-         throw HornetQAMQPProtocolMessageBundle.BUNDLE.errorCreatingHornetQConsumer(e.getMessage());
       }
    }
 

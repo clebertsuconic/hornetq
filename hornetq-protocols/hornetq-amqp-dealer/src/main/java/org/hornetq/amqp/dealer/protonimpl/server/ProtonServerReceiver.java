@@ -105,13 +105,7 @@ public class ProtonServerReceiver extends ProtonAbstractReceiver
          {
             synchronized (connection.getTrio().getLock())
             {
-               int count = readDelivery(receiver, buffer);
-
-               // we keep reading until we get end of messages, i.e. -1
-               if (count == 0)
-               {
-                  // todo this is obviously incorrect, investigate return;
-               }
+               readDelivery(receiver, buffer);
 
                sessionSPI.serverSend(address, delivery.getMessageFormat(), buffer.nioBuffer());
 

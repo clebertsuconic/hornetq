@@ -14,12 +14,14 @@
 package org.hornetq.amqp.test;
 
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.qpid.proton.amqp.messaging.AmqpValue;
 import org.apache.qpid.proton.amqp.messaging.Properties;
 import org.apache.qpid.proton.message.Message;
 import org.apache.qpid.proton.message.impl.MessageImpl;
 import org.hornetq.amqp.dealer.AMQPClientConnection;
+import org.hornetq.amqp.dealer.AMQPClientReceiver;
 import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.AMQPClientSession;
 import org.hornetq.amqp.dealer.SASLPlain;
@@ -67,11 +69,20 @@ public class SimpleClientTest
       MessageImpl message = (MessageImpl)Message.Factory.create();
 
       HashMap map = new HashMap();
-      map.put("i", 0);
+      map.put("i", 33);
       AmqpValue value = new AmqpValue(map);
 
       message.setBody(value);
       clientSender.send(message);
+
+      AMQPClientReceiver receiver = session.createReceiver("Test");
+
+      receiver.flow(1000);
+
+      System.out.println("Received " + receiver.receiveMessage(5, TimeUnit.SECONDS));
+
+
+      Thread.sleep(5000);
 
    }
 

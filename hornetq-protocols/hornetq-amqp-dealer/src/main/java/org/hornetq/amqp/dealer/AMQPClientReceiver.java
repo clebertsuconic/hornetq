@@ -13,15 +13,16 @@
 
 package org.hornetq.amqp.dealer;
 
-import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.qpid.proton.message.ProtonJMessage;
 
 /**
  * @author Clebert Suconic
  */
 
-public interface AMQPClientSession
+public interface AMQPClientReceiver
 {
-   AMQPClientSender createSender(String address, boolean preSettled) throws HornetQAMQPException;
-
-   AMQPClientReceiver createReceiver(String address) throws HornetQAMQPException;
+   ProtonJMessage receiveMessage(int time, TimeUnit unit);
+   void flow(int credits);
 }
