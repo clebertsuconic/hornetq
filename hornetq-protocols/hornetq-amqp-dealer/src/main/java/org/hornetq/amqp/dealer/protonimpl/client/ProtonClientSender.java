@@ -13,6 +13,7 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import org.apache.qpid.amqp_1_0.type.messaging.Accepted;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
 import org.hornetq.amqp.dealer.AMQPClientSender;
@@ -21,6 +22,7 @@ import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonSessionImpl;
 import org.hornetq.amqp.dealer.spi.ProtonSessionSPI;
+import org.hornetq.amqp.dealer.util.FutureRunnable;
 
 /**
  * @author Clebert Suconic
@@ -37,6 +39,12 @@ public class ProtonClientSender extends AbstractProtonSender implements AMQPClie
    @Override
    public void onMessage(Delivery delivery) throws HornetQAMQPException
    {
-
+      if (delivery.getRemoteState() instanceof Accepted)
+      {
+         if (delivery.getContext() instanceof FutureRunnable)
+         {
+            ((FutureRunnable)delivery.getContext()).countDown();
+         }
+      }
    }
 }

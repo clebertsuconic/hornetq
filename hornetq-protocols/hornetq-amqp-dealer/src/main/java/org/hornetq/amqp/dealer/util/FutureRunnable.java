@@ -43,6 +43,11 @@ public class FutureRunnable implements Runnable
       latch.countUp();
    }
 
+   public void countDown()
+   {
+      latch.countDown();
+   }
+
    public int getCount()
    {
       return latch.getCount();
