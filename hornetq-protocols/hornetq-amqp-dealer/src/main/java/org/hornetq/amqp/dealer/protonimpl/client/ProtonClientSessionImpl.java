@@ -14,6 +14,7 @@
 package org.hornetq.amqp.dealer.protonimpl.client;
 
 import org.apache.qpid.proton.amqp.messaging.Target;
+import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.AMQPClientSender;
@@ -35,7 +36,7 @@ public class ProtonClientSessionImpl extends ProtonSessionImpl implements AMQPCl
       super(sessionSPI, connection, session);
    }
 
-   public AMQPClientSender createSender(String address) throws HornetQAMQPException
+   public AMQPClientSender createSender(String address, boolean preSettled) throws HornetQAMQPException
    {
       FutureRunnable futureRunnable =  new FutureRunnable(1);
 
@@ -43,6 +44,7 @@ public class ProtonClientSessionImpl extends ProtonSessionImpl implements AMQPCl
       synchronized (connection.getTrio().getLock())
       {
          Sender sender = session.sender(address);
+         sender.setSenderSettleMode(SenderSettleMode.SETTLED);
          Target target = new Target();
          target.setAddress(address);
          sender.setTarget(target);

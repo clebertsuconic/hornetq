@@ -21,5 +21,5 @@ import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 
 public interface AMQPClientSession
 {
-   AMQPClientSender createSender(String address) throws HornetQAMQPException;
+   AMQPClientSender createSender(String address, boolean preSettled) throws HornetQAMQPException;
 }

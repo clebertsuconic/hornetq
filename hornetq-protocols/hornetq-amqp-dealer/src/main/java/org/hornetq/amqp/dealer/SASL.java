@@ -13,20 +13,12 @@
 
 package org.hornetq.amqp.dealer;
 
-import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
-
 /**
- * This is valid only on a client connection.
  * @author Clebert Suconic
  */
 
-public interface AMQPClientConnection extends AMQPConnection
+public abstract class SASL
 {
-   /**
-    * This will send an open and block for its return on AMQP protocol.
-    * @throws Exception
-    */
-   void clientOpen(SASL sasl) throws Exception;
-
-   AMQPClientSession createClientSession() throws HornetQAMQPException;
+   public abstract byte[] getBytes();
+   public abstract String getName();
 }

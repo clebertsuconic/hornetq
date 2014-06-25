@@ -13,9 +13,16 @@
 
 package org.hornetq.amqp.test;
 
+import java.util.HashMap;
+
+import org.apache.qpid.proton.amqp.messaging.AmqpValue;
+import org.apache.qpid.proton.amqp.messaging.Properties;
+import org.apache.qpid.proton.message.Message;
+import org.apache.qpid.proton.message.impl.MessageImpl;
 import org.hornetq.amqp.dealer.AMQPClientConnection;
 import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.AMQPClientSession;
+import org.hornetq.amqp.dealer.SASLPlain;
 import org.hornetq.amqp.test.minimalclient.SimpleAMQPConnector;
 import org.hornetq.amqp.test.minimalserver.MinimalServer;
 import org.junit.After;
@@ -33,7 +40,7 @@ public class SimpleClientTest
    @Before
    public void setUp() throws Exception
    {
-      server.start("127.0.0.1", 5672, false);
+      server.start("127.0.0.1", 5672, true);
 
    }
 
@@ -51,12 +58,20 @@ public class SimpleClientTest
       connector.start();
       AMQPClientConnection clientConnection = connector.connect("127.0.0.1", 5672);
 
-      clientConnection.clientOpen();
+      clientConnection.clientOpen(new SASLPlain("aa", "aa"));
 
       AMQPClientSession session = clientConnection.createClientSession();
-      AMQPClientSender clientSender = session.createSender("Test");
+      AMQPClientSender clientSender = session.createSender("Test", true);
+      Properties props = new Properties();
 
+      MessageImpl message = (MessageImpl)Message.Factory.create();
 
+      HashMap map = new HashMap();
+      map.put("i", 0);
+      AmqpValue value = new AmqpValue(map);
+
+      message.setBody(value);
+      clientSender.send(message);
 
    }
 

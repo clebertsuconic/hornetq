@@ -13,10 +13,13 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import java.util.concurrent.TimeUnit;
+
 import org.apache.qpid.amqp_1_0.type.messaging.Accepted;
+import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Sender;
-import org.apache.qpid.proton.message.Message;
+import org.apache.qpid.proton.message.ProtonJMessage;
 import org.hornetq.amqp.dealer.AMQPClientSender;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.AbstractProtonSender;
@@ -31,6 +34,8 @@ import org.hornetq.amqp.dealer.util.FutureRunnable;
 
 public class ProtonClientSender extends AbstractProtonSender implements AMQPClientSender
 {
+
+   FutureRunnable catchUpRunnable = new FutureRunnable();
 
    public ProtonClientSender(ProtonAbstractConnectionImpl connection, Sender sender, ProtonSessionImpl protonSession, ProtonSessionSPI server)
    {
@@ -49,8 +54,27 @@ public class ProtonClientSender extends AbstractProtonSender implements AMQPClie
       }
    }
 
-   public void send(Message message)
+   public void send(ProtonJMessage message)
    {
+      if (sender.getSenderSettleMode() != SenderSettleMode.SETTLED)
+      {
+         catchUpRunnable.countUp();
+      }
+      performSend(message, catchUpRunnable);
+   }
+
+
+   public boolean sync(long timeout, TimeUnit unit)
+   {
+      try
+      {
+         return catchUpRunnable.await(timeout, unit);
+      }
+      catch (InterruptedException e)
+      {
+         Thread.currentThread().interrupt();
+         return false;
+      }
 
    }
 

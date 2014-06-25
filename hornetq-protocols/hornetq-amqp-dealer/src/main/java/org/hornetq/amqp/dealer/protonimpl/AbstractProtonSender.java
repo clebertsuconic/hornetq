@@ -91,6 +91,7 @@ public abstract class AbstractProtonSender extends ProtonInitializable implement
    {
       //presettle means we can ack the message on the dealer side before we send it, i.e. for browsers
       boolean preSettle = sender.getRemoteSenderSettleMode() == SenderSettleMode.SETTLED;
+
       //we only need a tag if we are going to ack later
       byte[] tag = preSettle ? new byte[0] : protonSession.getTag();
 

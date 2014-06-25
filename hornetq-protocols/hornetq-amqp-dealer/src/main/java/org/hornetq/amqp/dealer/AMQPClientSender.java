@@ -13,7 +13,7 @@
 
 package org.hornetq.amqp.dealer;
 
-import org.apache.qpid.proton.message.Message;
+import org.apache.qpid.proton.message.ProtonJMessage;
 
 /**
  * @author Clebert Suconic
@@ -21,5 +21,5 @@ import org.apache.qpid.proton.message.Message;
 
 public interface AMQPClientSender
 {
-   void send(Message message);
+   void send(ProtonJMessage message);
 }

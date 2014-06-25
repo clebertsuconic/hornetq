@@ -17,6 +17,7 @@ import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Session;
 import org.hornetq.amqp.dealer.AMQPClientConnection;
 import org.hornetq.amqp.dealer.AMQPClientSession;
+import org.hornetq.amqp.dealer.SASL;
 import org.hornetq.amqp.dealer.exceptions.HornetQAMQPException;
 import org.hornetq.amqp.dealer.protonimpl.ProtonAbstractConnectionImpl;
 import org.hornetq.amqp.dealer.protonimpl.ProtonInitializable;
@@ -37,12 +38,13 @@ public class ProtonClientConnectionImpl extends ProtonAbstractConnectionImpl imp
    }
 
    // Maybe a client interface?
-   public void clientOpen() throws Exception
+   public void clientOpen(SASL sasl) throws Exception
    {
       FutureRunnable future = new FutureRunnable(1);
       synchronized (trio.getLock())
       {
          this.afterInit(future);
+         trio.createClientSasl(sasl);
          trio.getConnection().open();
          trio.dispatch();
       }

@@ -14,9 +14,7 @@ package org.hornetq.amqp.test;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
-import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
 import javax.jms.MessageConsumer;
@@ -27,13 +25,19 @@ import javax.jms.TextMessage;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 
-import io.hawtjms.jms.JmsConnectionFactory;
-import io.hawtjms.jms.JmsQueue;
-import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
-import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
+import org.apache.qpid.proton.amqp.messaging.AmqpValue;
+import org.apache.qpid.proton.amqp.messaging.Properties;
+import org.apache.qpid.proton.message.Message;
+import org.apache.qpid.proton.message.impl.MessageImpl;
+import org.hornetq.amqp.dealer.AMQPClientConnection;
+import org.hornetq.amqp.dealer.AMQPClientSender;
+import org.hornetq.amqp.dealer.AMQPClientSession;
+import org.hornetq.amqp.dealer.SASLPlain;
+import org.hornetq.amqp.test.minimalclient.SimpleAMQPConnector;
 import org.hornetq.amqp.test.minimalserver.DumbServer;
-import org.hornetq.amqp.test.minimalserver.MinimalServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -45,25 +49,25 @@ import org.junit.runners.Parameterized;
  * @author <a href="mailto:andy.taylor@jboss.org">Andy Taylor</a>
  */
 @RunWith(Parameterized.class)
-public class ProtonTest
+public class ProtonTest extends AbstractJMSTest
 {
-   protected String address = "exampleQueue";
-   private Connection connection;
 
-   private MinimalServer server = new MinimalServer();
+   protected Connection connection;
 
-   private final boolean useHawtJMS;
-
-
-   @Parameterized.Parameters(name = "useHawt={0}")
+   @Parameterized.Parameters(name = "useHawt={0} sasl={1}")
    public static Collection<Object[]> data()
    {
-      return Arrays.asList(new Object[][]{{Boolean.TRUE}, {Boolean.FALSE}});
+      List<Object[]> list = Arrays.asList(new Object[][]{
+         {Boolean.TRUE, Boolean.TRUE},
+         {Boolean.FALSE, Boolean.TRUE}});
+
+      System.out.println("Size = " + list.size());
+      return list;
    }
 
-   public ProtonTest(boolean useHawtJMS)
+   public ProtonTest(boolean useHawtJMS, boolean useSASL)
    {
-      this.useHawtJMS = useHawtJMS;
+      super(useHawtJMS, useSASL);
    }
 
 
@@ -71,7 +75,7 @@ public class ProtonTest
    public void setUp() throws Exception
    {
       DumbServer.clear();
-      server.start("127.0.0.1", 5672, true);
+      server.start("127.0.0.1", 5672, useSASL);
       connection = createConnection();
 
    }
@@ -84,8 +88,7 @@ public class ProtonTest
          connection.close();
       }
 
-      server.stop();
-      DumbServer.clear();
+      super.tearDown();
    }
 
    @Test
@@ -243,50 +246,53 @@ public class ProtonTest
       connection.close();
    }
 
-   private javax.jms.Connection createConnection() throws JMSException
+   @Test
+   public void testSendWithSimpleClient() throws Exception
    {
-      final ConnectionFactory factory = createConnectionFactory();
-      final javax.jms.Connection connection = factory.createConnection();
-      connection.setExceptionListener(new ExceptionListener()
+      SimpleAMQPConnector connector = new SimpleAMQPConnector();
+      connector.start();
+      AMQPClientConnection clientConnection = connector.connect("127.0.0.1", 5672);
+
+      clientConnection.clientOpen(new SASLPlain("aa", "aa"));
+
+      AMQPClientSession session = clientConnection.createClientSession();
+      AMQPClientSender clientSender = session.createSender(address, true);
+
+
+      Properties props = new Properties();
+      for (int i = 0; i < 1; i++)
       {
-         @Override
-         public void onException(JMSException exception)
-         {
-            exception.printStackTrace();
-         }
-      });
+         MessageImpl message = (MessageImpl) Message.Factory.create();
+
+         HashMap map = new HashMap();
+
+         map.put("i", i);
+         AmqpValue value = new AmqpValue(map);
+         message.setBody(value);
+         message.setProperties(props);
+         clientSender.send(message);
+      }
+
+      Session clientSession = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
       connection.start();
-      return connection;
+
+      MessageConsumer consumer = clientSession.createConsumer(createQueue());
+      for (int i = 0; i < 1; i++)
+      {
+         MapMessage msg = (MapMessage) consumer.receive(5000);
+         System.out.println("Msg " + msg);
+         Assert.assertNotNull(msg);
+
+         System.out.println("Receive message " + i);
+
+         Assert.assertEquals(0, msg.getInt("i"));
+      }
    }
+
 
    protected int getNumberOfMessages()
    {
       return 10000;
-   }
-
-
-   protected ConnectionFactory createConnectionFactory()
-   {
-      if (useHawtJMS)
-      {
-         return new JmsConnectionFactory("aaaaaaaa", "aaaaaaa", "amqp://localhost:5672");
-      }
-      else
-      {
-         return new ConnectionFactoryImpl("localhost", 5672, "aaaaaaaa", "aaaaaaa");
-      }
-   }
-
-   protected Queue createQueue()
-   {
-      if (useHawtJMS)
-      {
-         return new JmsQueue(address);
-      }
-      else
-      {
-         return new QueueImpl(address);
-      }
    }
 
 }

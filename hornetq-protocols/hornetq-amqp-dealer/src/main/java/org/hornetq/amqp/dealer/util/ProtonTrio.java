@@ -30,6 +30,7 @@ import org.apache.qpid.proton.engine.Sasl;
 import org.apache.qpid.proton.engine.Session;
 import org.apache.qpid.proton.engine.Transport;
 import org.apache.qpid.proton.engine.TransportResultFactory;
+import org.hornetq.amqp.dealer.SASL;
 
 /**
  * @author Clebert Suconic
@@ -39,7 +40,7 @@ public abstract class ProtonTrio
 {
    static ThreadLocal<Boolean> inDispatch = new ThreadLocal<>();
 
-   private Sasl qpidServerSASL;
+   private Sasl sasl;
 
    protected final Transport transport = Proton.transport();
 
@@ -63,6 +64,11 @@ public abstract class ProtonTrio
       transport.bind(connection);
       connection.collect(collector);
       this.executor = executor;
+   }
+
+   public Transport getTransport()
+   {
+      return transport;
    }
 
    public Connection getConnection()
@@ -97,10 +103,19 @@ public abstract class ProtonTrio
 
    public void createServerSasl(String... mechanisms)
    {
-      qpidServerSASL = transport.sasl();
-      qpidServerSASL.server();
-      qpidServerSASL.setMechanisms(mechanisms);
+      sasl = transport.sasl();
+      sasl.server();
+      sasl.setMechanisms(mechanisms);
    }
+
+   public void createClientSasl(SASL clientSASL)
+   {
+      sasl = transport.sasl();
+      sasl.setMechanisms(clientSASL.getName());
+      byte[] initialSasl = clientSASL.getBytes();
+      sasl.send(initialSasl, 0, initialSasl.length);
+   }
+
 
 
    public void close()
@@ -190,21 +205,21 @@ public abstract class ProtonTrio
 
    private void checkSASL()
    {
-      if (qpidServerSASL != null && qpidServerSASL.getRemoteMechanisms().length > 0)
+      if (sasl != null && sasl.getRemoteMechanisms().length > 0)
       {
 
-         byte[] dataSASL = new byte[qpidServerSASL.pending()];
-         qpidServerSASL.recv(dataSASL, 0, dataSASL.length);
+         byte[] dataSASL = new byte[sasl.pending()];
+         sasl.recv(dataSASL, 0, dataSASL.length);
 
-         if (qpidServerSASL.getRemoteMechanisms()[0].equals("PLAIN"))
+         if (sasl.getRemoteMechanisms()[0].equals("PLAIN"))
          {
             setUserPass(dataSASL);
          }
 
          // TODO: do the proper SASL authorization here
          // call an abstract method (authentication (bytes[])
-         qpidServerSASL.done(Sasl.SaslOutcome.PN_SASL_OK);
-         qpidServerSASL = null;
+         sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
+         sasl = null;
       }
    }
 
