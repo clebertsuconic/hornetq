@@ -13,10 +13,12 @@
 
 package org.hornetq.amqp.dealer.protonimpl.client;
 
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
+import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.message.Message;
@@ -39,6 +41,7 @@ public class ProtonClientReceiver extends ProtonAbstractReceiver implements AMQP
       super(sessionSPI, connection, protonSession, receiver);
    }
 
+   LinkedBlockingDeque<MessageImpl> queues = new LinkedBlockingDeque<>();
    /*
    * called when Proton receives a message to be delivered via a Delivery.
    *
@@ -57,12 +60,11 @@ public class ProtonClientReceiver extends ProtonAbstractReceiver implements AMQP
          {
             readDelivery(receiver, buffer);
 
+            delivery.disposition(Accepted.getInstance());
+
             MessageImpl serverMessage = (MessageImpl)Message.Factory.create();
             serverMessage.decode(buffer.nioBuffer());
-
-
-            System.out.println("message:" + serverMessage.getBody());
-
+            queues.add(serverMessage);
          }
       }
       finally
@@ -82,8 +84,8 @@ public class ProtonClientReceiver extends ProtonAbstractReceiver implements AMQP
 
 
    @Override
-   public ProtonJMessage receiveMessage(int time, TimeUnit unit)
+   public ProtonJMessage receiveMessage(int time, TimeUnit unit) throws Exception
    {
-      return null;
+      return queues.poll(time, unit);
    }
 }
