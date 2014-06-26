@@ -50,21 +50,17 @@ public class ProtonClientReceiver extends ProtonAbstractReceiver implements AMQP
    * */
    public void onMessage(Delivery delivery) throws HornetQAMQPException
    {
-      System.out.println("Receiving message " + delivery);
-
-
       ByteBuf buffer = PooledByteBufAllocator.DEFAULT.heapBuffer(1024 * 1024);
       try
       {
          synchronized (connection.getTrio().getLock())
          {
             readDelivery(receiver, buffer);
-
-            delivery.disposition(Accepted.getInstance());
-
             MessageImpl serverMessage = (MessageImpl)Message.Factory.create();
             serverMessage.decode(buffer.nioBuffer());
             queues.add(serverMessage);
+
+            delivery.disposition(Accepted.getInstance());
          }
       }
       finally

@@ -13,10 +13,12 @@
 
 package org.hornetq.amqp.test;
 
-import java.util.HashMap;
+import javax.jms.JMSException;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.qpid.proton.amqp.messaging.AmqpValue;
+import org.apache.qpid.proton.amqp.Binary;
+import org.apache.qpid.proton.amqp.messaging.Data;
 import org.apache.qpid.proton.amqp.messaging.Properties;
 import org.apache.qpid.proton.message.Message;
 import org.apache.qpid.proton.message.impl.MessageImpl;
@@ -28,6 +30,7 @@ import org.hornetq.amqp.dealer.SASLPlain;
 import org.hornetq.amqp.test.minimalclient.SimpleAMQPConnector;
 import org.hornetq.amqp.test.minimalserver.MinimalServer;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -66,11 +69,9 @@ public class SimpleClientTest
       AMQPClientSender clientSender = session.createSender("Test", true);
       Properties props = new Properties();
 
-      MessageImpl message = (MessageImpl)Message.Factory.create();
+      MessageImpl message = (MessageImpl) Message.Factory.create();
 
-      HashMap map = new HashMap();
-      map.put("i", 33);
-      AmqpValue value = new AmqpValue(map);
+      Data value = new Data(new Binary(new byte[5]));
 
       message.setBody(value);
       clientSender.send(message);
@@ -79,12 +80,103 @@ public class SimpleClientTest
 
       receiver.flow(1000);
 
-      System.out.println("Received " + receiver.receiveMessage(5, TimeUnit.SECONDS));
+      message = (MessageImpl) receiver.receiveMessage(5, TimeUnit.SECONDS);
 
+      System.out.println("Received message " + message.getBody());
 
-      Thread.sleep(5000);
 
    }
 
+   @Test
+   public void testMessagesReceivedInParallel() throws Throwable
+   {
+      SimpleAMQPConnector connector1 = new SimpleAMQPConnector();
+      connector1.start();
+      final AMQPClientConnection clientConnection = connector1.connect("127.0.0.1", 5672);
+      clientConnection.clientOpen(new SASLPlain("AA", "AA"));
+
+
+      SimpleAMQPConnector connector2 = new SimpleAMQPConnector();
+      connector2.start();
+      final AMQPClientConnection connectionConsumer = connector2.connect("127.0.0.1", 5672);
+      connectionConsumer.clientOpen(new SASLPlain("AA", "AA"));
+
+
+      final int numMessages = getNumberOfMessages();
+      long time = System.currentTimeMillis();
+
+      final ArrayList<Throwable> exceptions = new ArrayList<>();
+
+      Thread t = new Thread(new Runnable()
+      {
+         @Override
+         public void run()
+         {
+            try
+            {
+               AMQPClientSession sessionConsumer = connectionConsumer.createClientSession();
+               AMQPClientReceiver receiver = sessionConsumer.createReceiver("Test");
+               receiver.flow(getNumberOfMessages() * 2);
+
+               int received = 0;
+               int count = numMessages;
+               while (count > 0)
+               {
+                  received++;
+                  if (received % 500 == 0)
+                  {
+                     System.out.println("Received " + received);
+                  }
+
+                  try
+                  {
+                     MessageImpl m = (MessageImpl) receiver.receiveMessage(5, TimeUnit.SECONDS);
+                     Assert.assertNotNull("Could not receive message count=" + count + " on consumer", m);
+                     count--;
+                  }
+                  catch (JMSException e)
+                  {
+                     break;
+                  }
+               }
+            }
+            catch (Throwable e)
+            {
+               exceptions.add(e);
+               e.printStackTrace();
+            }
+         }
+      });
+
+      AMQPClientSession session = clientConnection.createClientSession();
+
+      t.start();
+
+      AMQPClientSender sender = session.createSender("Test", true);
+      for (int i = 0; i < numMessages; i++)
+      {
+         MessageImpl message = (MessageImpl) Message.Factory.create();
+         message.setBody(new Data(new Binary(new byte[5])));
+         sender.send(message);
+      }
+
+      long taken = (System.currentTimeMillis() - time);
+      System.out.println("taken on send = " + taken);
+      t.join();
+
+      for (Throwable e : exceptions)
+      {
+         throw e;
+      }
+      taken = (System.currentTimeMillis() - time);
+      System.out.println("taken = " + taken);
+
+   }
+
+
+   protected int getNumberOfMessages()
+   {
+      return 5000;
+   }
 
 }

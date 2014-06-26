@@ -292,7 +292,7 @@ public class ProtonTest extends AbstractJMSTest
 
    protected int getNumberOfMessages()
    {
-      return 10000;
+      return 1000;
    }
 
 }
