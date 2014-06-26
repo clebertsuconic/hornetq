@@ -137,17 +137,17 @@ public abstract class ProtonTrio
          {
             return 0;
          }
-         final int size = bytes.writerIndex();
 
          synchronized (lock)
          {
 
             final ByteBuffer input = transport.getInputBuffer();
 
-            if (size > input.remaining())
+            if (bytes.readableBytes() > input.remaining())
             {
 
-               for (int start = 0; start < size; )
+               int readerIndex = bytes.readerIndex();
+               while (readerIndex + bytesRead < bytes.writerIndex())
                {
                   int remaining = input.remaining();
                   if (remaining == 0)
@@ -155,26 +155,25 @@ public abstract class ProtonTrio
                      System.err.println("Buffer full!!!");
                      break;
                   }
-                  int max = Math.min(remaining, size - start);
-                  ByteBuffer tmp = bytes.internalNioBuffer(start, max);
-                  transport.getInputBuffer().put(tmp);
+                  int min = Math.min(remaining, bytes.readableBytes());
+                  ByteBuffer tmp = bytes.internalNioBuffer(readerIndex + bytesRead, min);
+                  input.put(tmp);
                   if (!processBuffer())
                   {
                      System.err.println("DEBUG This.. Process Buffer returned false!!!!!!!!!!!!!");
-                     bytesRead = start;
+                     bytesRead += min;
                      break;
                   }
 
-                  start += max;
-                  bytesRead = start;
+                  bytesRead += min;
                }
 
             }
             else
             {
-               ByteBuffer tmp = bytes.internalNioBuffer(bytes.readerIndex(), bytes.writerIndex());
+               ByteBuffer tmp = bytes.internalNioBuffer(bytes.readerIndex(), bytes.readableBytes());
                bytesRead = tmp.remaining();
-               transport.getInputBuffer().put(tmp);
+               input.put(tmp);
                if (!processBuffer()) return 0;
             }
 
