@@ -133,29 +133,29 @@ public abstract class ProtonTrio
       int bytesRead = 0;
       try
       {
+         if (bytes.readableBytes() < 8)
+         {
+            return 0;
+         }
+         final int size = bytes.writerIndex();
+
          synchronized (lock)
          {
-            if (bytes.writerIndex() - bytes.readerIndex() < 8)
-            {
-               return 0;
-            }
-
-            final int size = bytes.writerIndex();
 
             final ByteBuffer input = transport.getInputBuffer();
 
-            if (size > input.capacity())
+            if (size > input.remaining())
             {
 
                for (int start = 0; start < size; )
                {
-                  int capacity = input.capacity();
-                  if (capacity == 0)
+                  int remaining = input.remaining();
+                  if (remaining == 0)
                   {
-                     System.err.println("Capacity full!!!!");
+                     System.err.println("Buffer full!!!");
                      break;
                   }
-                  int max = Math.min(capacity, size - start);
+                  int max = Math.min(remaining, size - start);
                   ByteBuffer tmp = bytes.internalNioBuffer(start, max);
                   transport.getInputBuffer().put(tmp);
                   if (!processBuffer())
@@ -172,8 +172,8 @@ public abstract class ProtonTrio
             }
             else
             {
-               bytesRead = bytes.writerIndex();
-               ByteBuffer tmp = bytes.internalNioBuffer(0, bytes.writerIndex());
+               ByteBuffer tmp = bytes.internalNioBuffer(bytes.readerIndex(), bytes.writerIndex());
+               bytesRead = tmp.remaining();
                transport.getInputBuffer().put(tmp);
                if (!processBuffer()) return 0;
             }
