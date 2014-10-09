@@ -51,5 +51,6 @@
       <module>performance-tests</module>
       <module>integration-tests</module>
       <module>byteman-tests</module>
+      <module>swiftmq-amqp-1.0-tests</module>
    </modules>
 </project>

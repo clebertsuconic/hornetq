@@ -1,0 +1,110 @@
+<configuration xmlns="urn:hornetq"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="urn:hornetq /schema/hornetq-configuration.xsd">
+
+   <bindings-directory>${build.directory}/server0/data/messaging/bindings</bindings-directory>
+
+   <journal-directory>${build.directory}/server0/data/messaging/journal</journal-directory>
+
+   <large-messages-directory>${build.directory}/server0/data/messaging/largemessages</large-messages-directory>
+
+   <paging-directory>${build.directory}/server0/data/messaging/paging</paging-directory>
+
+
+    <!-- Acceptors -->
+    <acceptors>
+        <acceptor name="proton-acceptor">
+            <factory-class>org.hornetq.core.remoting.impl.netty.NettyAcceptorFactory</factory-class>
+            <param key="protocol" value="AMQP"/>
+            <param key="port" value="5672"/>
+        </acceptor>
+    </acceptors>
+
+    <queues>
+        <queue name="amqp_testqueue1">
+            <address>amqp_testqueue1</address>
+        </queue>
+       <queue name="amqp_testqueue2">
+          <address>amqp_testqueue2</address>
+       </queue>
+       <queue name="amqp_testqueue3">
+          <address>amqp_testqueue3</address>
+       </queue>
+       <queue name="amqp_testqueue4">
+          <address>amqp_testqueue4</address>
+       </queue>
+       <queue name="amqp_testqueue5">
+          <address>amqp_testqueue5</address>
+       </queue>
+       <queue name="amqp_testqueue6">
+          <address>amqp_testqueue6</address>
+       </queue>
+       <queue name="amqp_testqueue7">
+          <address>amqp_testqueue7</address>
+       </queue>
+       <queue name="amqp_testqueue8">
+          <address>amqp_testqueue8</address>
+       </queue>
+       <queue name="amqp_testqueue9">
+          <address>amqp_testqueue9</address>
+       </queue>
+       <queue name="amqp_testqueue10">
+          <address>amqp_testqueue10</address>
+       </queue>
+       <queue name="amqp_testtopic1">
+          <address>amqp_testTopic1</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic2">
+          <address>amqp_testTopic2</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic3">
+          <address>amqp_testTopic3</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic4">
+          <address>amqp_testTopic4</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic5">
+          <address>amqp_testTopic5</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic6">
+          <address>amqp_testTopic6</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic7">
+          <address>amqp_testTopic7</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic8">
+          <address>amqp_testTopic8</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic9">
+          <address>amqp_testTopic9</address>
+          <filter string="_HX=1"/>
+       </queue>
+       <queue name="amqp_testTopic10">
+          <address>amqp_testTopic10</address>
+          <filter string="_HX=1"/>
+       </queue>
+    </queues>
+
+   <!-- Other config -->
+
+   <security-settings>
+      <!--security for example queue-->
+      <security-setting match="#">
+         <permission type="createDurableQueue" roles="guest"/>
+         <permission type="deleteDurableQueue" roles="guest"/>
+         <permission type="createNonDurableQueue" roles="guest"/>
+         <permission type="deleteNonDurableQueue" roles="guest"/>
+         <permission type="consume" roles="guest"/>
+         <permission type="send" roles="guest"/>
+      </security-setting>
+   </security-settings>
+
+</configuration>
