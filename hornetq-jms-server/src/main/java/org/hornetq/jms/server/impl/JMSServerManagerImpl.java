@@ -898,30 +898,32 @@ public class JMSServerManagerImpl implements JMSServerManager, ActivateCallback
    {
       checkInitialised();
 
-      removeFromJNDI(queues, queueJNDI, name);
-
-      queues.remove(name);
-      queueJNDI.remove(name);
-
-      jmsManagementService.unregisterQueue(name);
-
       server.destroyQueue(HornetQDestination.createQueueAddressFromName(name), null, true);
 
-      storage.deleteDestination(PersistedType.Queue, name);
+      // if the queue has consumers the queue won't actually be removed therefore only remove the queue from JNDI, etc.
+      // if the queue is actually removed
+      if (this.server.getPostOffice().getBinding(HornetQDestination.createQueueAddressFromName(name)) == null)
+      {
+         removeFromJNDI(queues, queueJNDI, name);
 
-      return true;
+         queues.remove(name);
+         queueJNDI.remove(name);
+
+         jmsManagementService.unregisterQueue(name);
+
+         storage.deleteDestination(PersistedType.Queue, name);
+
+         return true;
+      }
+      else
+      {
+         return false;
+      }
    }
 
    public synchronized boolean destroyTopic(final String name) throws Exception
    {
       checkInitialised();
-
-      removeFromJNDI(topics, topicJNDI, name);
-
-      topics.remove(name);
-      topicJNDI.remove(name);
-
-      jmsManagementService.unregisterTopic(name);
 
       AddressControl addressControl = (AddressControl)server.getManagementService()
          .getResource(ResourceNames.CORE_ADDRESS + HornetQDestination.createTopicAddressFromName(name));
@@ -942,9 +944,29 @@ public class JMSServerManagerImpl implements JMSServerManager, ActivateCallback
                server.destroyQueue(SimpleString.toSimpleString(queueName), null, true);
             }
          }
+
+         if (addressControl.getQueueNames().length == 0)
+         {
+            removeFromJNDI(topics, topicJNDI, name);
+
+            topics.remove(name);
+            topicJNDI.remove(name);
+
+            jmsManagementService.unregisterTopic(name);
+
+            storage.deleteDestination(PersistedType.Topic, name);
+
+            return true;
+         }
+         else
+         {
+            return false;
+         }
       }
-      storage.deleteDestination(PersistedType.Topic, name);
-      return true;
+      else
+      {
+         return false;
+      }
    }
 
    public synchronized void createConnectionFactory(final String name,
