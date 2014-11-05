@@ -160,6 +160,7 @@ public class ProtocolHandler
                if (protocolManager.isProtocol(bytes))
                {
                   protocolToUse = protocol;
+                  System.out.println("Using " + protocol);
                   break;
                }
             }

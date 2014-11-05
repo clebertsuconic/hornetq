@@ -261,15 +261,12 @@ public class ProtonTest extends ServiceTestBase
    {
       Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-      MessageConsumer cons = session.createConsumer(createQueue(address));
+      MessageProducer prod = session.createProducer(createQueue(address));
 
-      org.hornetq.core.server.Queue serverQueue = server.locateQueue(SimpleString.toSimpleString(coreAddress));
+      BytesMessage message = session.createBytesMessage();
+      message.writeBytes(new byte[]{'1', '1', '1', '1'});
+      prod.send(message);
 
-      assertEquals(1, serverQueue.getConsumerCount());
-
-      cons.close();
-
-      assertEquals(0, serverQueue.getConsumerCount());
 
       session.close();
 

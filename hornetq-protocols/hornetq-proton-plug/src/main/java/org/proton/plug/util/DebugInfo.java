@@ -19,5 +19,5 @@ package org.proton.plug.util;
 
 public class DebugInfo
 {
-   public static final boolean debug = false;
+   public static final boolean debug = true;
 }
