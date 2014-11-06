@@ -20,6 +20,7 @@ import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.QueueBrowser;
 import javax.jms.Session;
+import javax.jms.TemporaryQueue;
 import javax.jms.TextMessage;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -98,6 +99,35 @@ public class ProtonTest extends ServiceTestBase
       super.tearDown();
    }
 
+
+
+   @Test
+   public void testTemporaryQueue() throws Throwable
+   {
+
+      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      TemporaryQueue queue = session.createTemporaryQueue();
+      MessageProducer p = session.createProducer(queue);
+
+      TextMessage message = session.createTextMessage();
+      message.setText("Message temporary");
+      p.send(message);
+
+      MessageConsumer cons = session.createConsumer(queue);
+      connection.start();
+
+      message = (TextMessage)cons.receive(5000);
+      assertNotNull(message);
+
+      System.out.println("message:" + message.getText());
+//      Queue q = (Queue) server.getPostOffice().getBinding(new SimpleString(coreAddress)).getBindable();
+//      for (long timeout = System.currentTimeMillis() + 5000; timeout > System.currentTimeMillis() && getMessageCount(q) != numMessages; )
+//      {
+//         Thread.sleep(1);
+//      }
+//      assertEquals(numMessages, getMessageCount(q));
+
+   }
 
    /*
    // Uncomment testLoopBrowser to validate the hunging on the test
