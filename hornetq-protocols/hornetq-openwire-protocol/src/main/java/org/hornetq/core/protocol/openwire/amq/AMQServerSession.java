@@ -303,9 +303,11 @@ public class AMQServerSession extends ServerSessionImpl
    {
       if (!this.internal)
       {
+         new Exception ("temporary!!").printStackTrace();
          super.createQueue(address, name, filterString, temporary, durable);
          return;
       }
+      new Exception ("temporary!!").printStackTrace();
 
       server.createQueue(address, name, filterString, durable, temporary);
 
@@ -316,6 +318,8 @@ public class AMQServerSession extends ServerSessionImpl
          // dies. It does not mean it will get deleted automatically when the
          // session is closed.
          // It is up to the user to delete the queue when finished with it
+
+         new Exception ("temporary!!").printStackTrace();
 
          TempQueueCleanerUpper cleaner = new TempQueueCleanerUpper(server, name);
 

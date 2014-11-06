@@ -1968,6 +1968,8 @@ public class HornetQServerImpl implements HornetQServer
                              final boolean ignoreIfExists,
                              final boolean transientQueue) throws Exception
    {
+
+      new Exception ("createQueue").printStackTrace();
       QueueBinding binding = (QueueBinding) postOffice.getBinding(queueName);
 
       if (binding != null)
