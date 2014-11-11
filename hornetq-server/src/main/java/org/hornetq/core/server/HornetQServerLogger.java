@@ -1011,6 +1011,11 @@ public interface HornetQServerLogger extends BasicLogger
    void errorRecoveringPageCounter(@Cause Throwable error);
 
    @LogMessage(level = Logger.Level.WARN)
+   @Message(id = 222190,
+         value = "Disallowing use of vulnerable protocol: {0}. See http://www.oracle.com/technetwork/topics/security/poodlecve-2014-3566-2339408.html for more details.",
+         format = Message.Format.MESSAGE_FORMAT)
+   void disallowedProtocol(String protocol);
+
    @Message(id = 222179, value = "There are no queues bound into expiry address {0}. Messages will be dropped if you use expiration until you deploy a destination on this address",
             format = Message.Format.MESSAGE_FORMAT)
    void unboudExpiry(SimpleString expiryAddress);
