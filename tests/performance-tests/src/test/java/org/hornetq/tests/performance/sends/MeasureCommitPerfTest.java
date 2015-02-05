@@ -35,23 +35,24 @@ public class MeasureCommitPerfTest extends AbstractSendReceivePerfTest
       Session s = c.createSession(true, Session.SESSION_TRANSACTED);
 
 
-      long timeout = System.currentTimeMillis() + 35 * 1000;
+      long timeout = System.currentTimeMillis() + 30 * 1000;
 
       long startMeasure = System.currentTimeMillis() + 5000;
-      long start = System.currentTimeMillis();
+      long start = 0;
       long committs = 0;
       while (timeout > System.currentTimeMillis())
       {
 
-         if (start == 0 && startMeasure > System.currentTimeMillis())
+         if (start == 0 && System.currentTimeMillis() > startMeasure)
          {
+            System.out.println("heat up");
             start = System.currentTimeMillis();
             committs = 0;
          }
 
          s.commit();
          committs++;
-         if (start > 0 && start % 1000 == 0) printCommitsSecond(start, committs);
+         if (start > 0 && committs % 1000 == 0) printCommitsSecond(start, committs);
       }
       printCommitsSecond(start, committs);
 

@@ -181,7 +181,7 @@ public abstract class AbstractSendReceivePerfTest extends JMSTestBase
    protected void sendMessages(Connection c, String qName) throws JMSException
    {
       Session s = null;
-      s = c.createSession(true, Session.SESSION_TRANSACTED);
+      s = c.createSession(false, Session.AUTO_ACKNOWLEDGE);
       LOGGER.info("Sender: Using AUTO-ACK session");
 
 
