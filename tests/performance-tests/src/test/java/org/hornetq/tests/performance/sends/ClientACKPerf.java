@@ -78,6 +78,7 @@ public class ClientACKPerf extends AbstractSendReceivePerfTest
       while (timeout > System.currentTimeMillis())
       {
          m = consumer.receive(5000);
+         afterConsume(m);
 
 
          if (m == null)

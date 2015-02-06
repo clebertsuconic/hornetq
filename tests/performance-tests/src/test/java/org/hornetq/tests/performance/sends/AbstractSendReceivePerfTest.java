@@ -16,11 +16,14 @@ import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
+import javax.jms.Message;
 import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.hornetq.api.core.TransportConfiguration;
@@ -95,6 +98,46 @@ public abstract class AbstractSendReceivePerfTest extends JMSTestBase
       assertFalse(sender.failed);
 
    }
+
+   final Semaphore pendingCredit = new Semaphore(5000);
+
+   /**
+    * to be called after a message is consumed
+    * so the flow control of the test kicks in.
+    */
+   protected final void afterConsume(Message message)
+   {
+      if (message != null)
+      {
+         pendingCredit.release();
+      }
+   }
+
+
+   protected final void beforeSend()
+   {
+      while (running.get())
+      {
+         try
+         {
+            if (pendingCredit.tryAcquire(1, TimeUnit.SECONDS))
+            {
+               return;
+            }
+            else
+            {
+               System.out.println("Couldn't get credits!");
+            }
+         }
+         catch (Throwable e)
+         {
+            throw new RuntimeException(e.getMessage(), e);
+         }
+      }
+   }
+
+
+
 
    private class MessageReceiver extends Thread
    {
@@ -193,6 +236,7 @@ public abstract class AbstractSendReceivePerfTest extends JMSTestBase
       long sent = 0;
       while (running.get())
       {
+         beforeSend();
          producer.send(q, s.createTextMessage("Message_" + (sent++)));
       }
    }
