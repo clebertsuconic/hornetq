@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPromise;
@@ -154,9 +155,9 @@ public class NettyConnection implements Connection
       listener.connectionDestroyed(getID());
    }
 
-   public HornetQBuffer createBuffer(final int size)
+   public HornetQBuffer createTransportBuffer(final int size)
    {
-      return new ChannelBufferWrapper(channel.alloc().buffer(size));
+      return new ChannelBufferWrapper(PooledByteBufAllocator.DEFAULT.directBuffer(size), true);
    }
 
    public Object getID()
@@ -181,7 +182,7 @@ public class NettyConnection implements Connection
             {
                channel.writeAndFlush(batchBuffer.byteBuf());
 
-               batchBuffer = createBuffer(BATCHING_BUFFER_SIZE);
+               batchBuffer = createTransportBuffer(BATCHING_BUFFER_SIZE);
             }
          }
          finally

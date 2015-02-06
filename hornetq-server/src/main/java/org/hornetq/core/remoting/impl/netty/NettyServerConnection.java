@@ -14,6 +14,7 @@ package org.hornetq.core.remoting.impl.netty;
 
 import java.util.Map;
 
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import org.hornetq.api.core.HornetQBuffer;
 import org.hornetq.core.buffers.impl.ChannelBufferWrapper;
@@ -30,8 +31,8 @@ public class NettyServerConnection extends NettyConnection
    }
 
    @Override
-   public HornetQBuffer createBuffer(int size)
+   public HornetQBuffer createTransportBuffer(int size)
    {
-      return new ChannelBufferWrapper(channel.alloc().directBuffer(size), true);
+      return new ChannelBufferWrapper(PooledByteBufAllocator.DEFAULT.directBuffer(size));
    }
 }

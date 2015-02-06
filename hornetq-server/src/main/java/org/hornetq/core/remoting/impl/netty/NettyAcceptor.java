@@ -30,6 +30,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -437,7 +438,9 @@ public class NettyAcceptor implements Acceptor
       bootstrap.option(ChannelOption.SO_REUSEADDR, true);
       bootstrap.childOption(ChannelOption.SO_REUSEADDR, true);
       bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
-      bootstrap.childOption(ChannelOption.ALLOCATOR, PartialPooledByteBufAllocator.INSTANCE);
+//      bootstrap.childOption(ChannelOption.ALLOCATOR, PartialPooledByteBufAllocator.INSTANCE);
+      bootstrap.option(ChannelOption.ALLOCATOR, new PooledByteBufAllocator(true));
+
       channelGroup = new DefaultChannelGroup("hornetq-accepted-channels", GlobalEventExecutor.INSTANCE);
 
       serverChannelGroup = new DefaultChannelGroup("hornetq-acceptor-channels", GlobalEventExecutor.INSTANCE);
