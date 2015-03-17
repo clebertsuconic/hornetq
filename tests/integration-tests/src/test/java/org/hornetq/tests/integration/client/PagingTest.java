@@ -107,6 +107,100 @@ public class PagingTest extends ServiceTestBase
       locator = createInVMNonHALocator();
    }
 
+
+
+   @Test
+   public void testPageCleanup2() throws Exception
+   {
+      clearDataRecreateServerDirs();
+
+      Configuration config = createDefaultConfig();
+
+      config.setJournalSyncNonTransactional(false);
+
+      server =
+         createServer(true, config,
+                      PagingTest.PAGE_SIZE,
+                      PagingTest.PAGE_MAX,
+                      new HashMap<String, AddressSettings>());
+
+      server.start();
+
+      final int numberOfMessages = 5000;
+
+      locator = createInVMNonHALocator();
+
+      locator.setBlockOnNonDurableSend(true);
+      locator.setBlockOnDurableSend(true);
+      locator.setBlockOnAcknowledge(true);
+
+      sf = createSessionFactory(locator);
+
+      ClientSession session = sf.createSession(true, true, 0);
+
+      session.createQueue(PagingTest.ADDRESS, PagingTest.ADDRESS, null, true);
+      
+      Queue queue = server.locateQueue(PagingTest.ADDRESS);
+
+      ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
+
+      ClientMessage message = null;
+
+      byte[] body = new byte[MESSAGE_SIZE];
+
+      ByteBuffer bb = ByteBuffer.wrap(body);
+
+      for (int j = 1; j <= MESSAGE_SIZE; j++)
+      {
+         bb.put(getSamplebyte(j));
+      }
+
+
+      // The consumer has to be created after the queue.getMessageCount assertion
+      // otherwise delivery could alter the messagecount and give us a false failure
+      ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
+
+
+      boolean startConsuming = false;
+
+      for (int i = 0; i < numberOfMessages; i++)
+      {
+         message = session.createMessage(true);
+
+         HornetQBuffer bodyLocal = message.getBodyBuffer();
+
+         bodyLocal.writeBytes(body);
+
+         producer.send(message);
+         
+         if (!startConsuming && queue.getPageSubscription().getPagingStore().isPaging())
+         {
+            System.out.println("Is Paging!!!! " + i);
+            startConsuming = true;
+            session.start();
+            
+            for (int x = 0; x < i; x++)
+            {
+               message = consumer.receive(500);
+               message.acknowledge();
+            }
+         }
+         
+         
+         if (startConsuming)
+         {
+            consumer.receive(1000).acknowledge();
+         }
+         
+         
+         if (i == 1000)
+         {
+            System.exit(-1);
+         }
+      }
+   }
+
+
    @Test
    public void testPageCleanup() throws Exception
    {
