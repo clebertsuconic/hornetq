@@ -108,6 +108,110 @@ public class PagingTest extends ServiceTestBase
       locator = createInVMNonHALocator();
    }
 
+
+
+   @Test
+   public void testRunConsume() throws Exception
+   {
+      clearDataRecreateServerDirs();
+
+      Configuration config = createDefaultConfig();
+
+      config.setJournalSyncNonTransactional(false);
+
+      server =
+         createServer(true, config,
+                      PagingTest.PAGE_SIZE,
+                      PagingTest.PAGE_MAX,
+                      new HashMap<String, AddressSettings>());
+
+      server.start();
+
+      final int numberOfMessages = 5000;
+
+      locator = createInVMNonHALocator();
+
+      locator.setBlockOnNonDurableSend(true);
+      locator.setBlockOnDurableSend(true);
+      locator.setBlockOnAcknowledge(true);
+
+      sf = createSessionFactory(locator);
+
+      ClientSession session = sf.createSession(true, true, 0);
+
+      session.createQueue(PagingTest.ADDRESS, PagingTest.ADDRESS, null, true);
+      session.createQueue(ADDRESS, ADDRESS.concat("2"), null, true);
+      
+      Queue queue = server.locateQueue(PagingTest.ADDRESS);
+
+      ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
+
+      ClientMessage message = null;
+
+      byte[] body = new byte[MESSAGE_SIZE];
+
+      ByteBuffer bb = ByteBuffer.wrap(body);
+
+      for (int j = 1; j <= MESSAGE_SIZE; j++)
+      {
+         bb.put(getSamplebyte(j));
+      }
+
+
+      // The consumer has to be created after the queue.getMessageCount assertion
+      // otherwise delivery could alter the messagecount and give us a false failure
+      ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
+
+
+      boolean startConsuming = false;
+      
+      int iStart = -1;
+
+      for (int i = 0; i < numberOfMessages; i++)
+      {
+         message = session.createMessage(true);
+         
+         message.putIntProperty("i", i);
+
+         HornetQBuffer bodyLocal = message.getBodyBuffer();
+
+         bodyLocal.writeBytes(body);
+
+         producer.send(message);
+         
+         if (iStart < 0 && queue.getPageSubscription().getPagingStore().isPaging())
+         {
+            System.out.println("Is Paging!!!! " + i);
+            iStart = i + 10;
+         }
+         
+         if (!startConsuming && iStart > 0 && i > iStart)
+         {
+            
+            startConsuming = true;
+            session.start();
+
+            for (int x = 0; x < i -7; x++)
+            {
+               message = consumer.receive(5000);
+               message.acknowledge();
+            }
+            
+            System.exit(-1);
+         }
+         
+         
+         if (startConsuming)
+         {
+            ClientMessage message1 = consumer.receive(1000);
+            message1.acknowledge();
+            session.commit();
+         }
+         
+      }
+   }
+
+
    @Test
    public void testPageCleanup() throws Exception
    {
