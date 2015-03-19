@@ -37,6 +37,7 @@ import org.hornetq.api.core.client.ClientConsumer;
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.api.core.client.ClientProducer;
 import org.hornetq.api.core.client.FailoverEventListener;
+import org.hornetq.api.core.client.HornetQClient;
 import org.hornetq.api.core.client.SendAcknowledgementHandler;
 import org.hornetq.api.core.client.SessionFailureListener;
 import org.hornetq.core.client.HornetQClientLogger;
@@ -1035,12 +1036,16 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
                {
                   HornetQClientLogger.LOGGER.debug("ClientSession reattached fine, replaying commands");
                }
+
+               HornetQClientLogger.LOGGER.replayingCommands(channel.getID(), response.getLastConfirmedCommandID());
                // The session was found on the server - we reattached transparently ok
 
                channel.replayCommands(response.getLastConfirmedCommandID());
             }
             else
             {
+
+               HornetQClientLogger.LOGGER.creatingNewSession(channel.getID());
 
                if (HornetQClientLogger.LOGGER.isDebugEnabled())
                {

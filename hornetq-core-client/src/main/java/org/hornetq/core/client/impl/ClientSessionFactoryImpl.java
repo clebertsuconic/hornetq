@@ -595,6 +595,10 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
 
    private void failoverOrReconnect(final Object connectionID, final HornetQException me)
    {
+      
+      HornetQClientLogger.LOGGER.failoverOrReconnect(connectionID, me);
+      
+      // TODO print here
       Set<ClientSessionInternal> sessionsToClose = null;
       if (exitLoop)
          return;
