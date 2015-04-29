@@ -39,14 +39,13 @@ package org.hornetq.core.server;
  * so an INFO message would be 101000 to 101999
  */
 
+import javax.transaction.xa.Xid;
 import java.io.File;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-
-import javax.transaction.xa.Xid;
 
 import org.hornetq.api.core.HornetQExceptionType;
 import org.hornetq.api.core.Pair;
@@ -1012,10 +1011,11 @@ public interface HornetQServerLogger extends BasicLogger
 
    @LogMessage(level = Logger.Level.WARN)
    @Message(id = 222190,
-         value = "Disallowing use of vulnerable protocol: {0}. See http://www.oracle.com/technetwork/topics/security/poodlecve-2014-3566-2339408.html for more details.",
-         format = Message.Format.MESSAGE_FORMAT)
+      value = "Disallowing use of vulnerable protocol: {0}. See http://www.oracle.com/technetwork/topics/security/poodlecve-2014-3566-2339408.html for more details.",
+      format = Message.Format.MESSAGE_FORMAT)
    void disallowedProtocol(String protocol);
 
+   @LogMessage(level = Logger.Level.WARN)
    @Message(id = 222179, value = "There are no queues bound into expiry address {0}. Messages will be dropped if you use expiration until you deploy a destination on this address",
             format = Message.Format.MESSAGE_FORMAT)
    void unboudExpiry(SimpleString expiryAddress);
