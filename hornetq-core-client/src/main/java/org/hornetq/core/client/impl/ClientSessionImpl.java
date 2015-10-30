@@ -632,7 +632,6 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    public void rollback(final Xid xid) throws XAException
    {
-      new Exception("trace").printStackTrace();
       checkXA();
 
       if (HornetQClientLogger.LOGGER.isTraceEnabled())

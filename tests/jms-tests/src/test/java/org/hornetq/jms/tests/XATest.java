@@ -42,6 +42,7 @@ import org.hornetq.core.client.impl.ClientSessionInternal;
 import org.hornetq.core.remoting.impl.netty.NettyConnectorFactory;
 import org.hornetq.jms.client.HornetQXAConnectionFactory;
 import org.hornetq.jms.tests.util.ProxyAssertSupport;
+import org.hornetq.tests.util.RandomUtil;
 import org.jboss.tm.TxUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -377,10 +378,12 @@ public class XATest extends HornetQServerTestCase
 
 
    @Test
-   public void testConsumeAndProduceFailureOneMessage() throws Exception
+   public void testFailWhileConsumeRetry() throws Exception
    {
-      createQueue("outQueue");
-      createQueue("inQueue");
+      String outQueueName = "outQueue" + RandomUtil.randomString();
+      String inQueueName = "inQueue" + RandomUtil.randomString();
+      createQueue(outQueueName);
+      createQueue(inQueueName);
 
       Queue inQueue;
       Queue outQueue;
@@ -388,10 +391,10 @@ public class XATest extends HornetQServerTestCase
       {
          Connection conn = getConnectionFactory().createConnection();
          Session session = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
-         inQueue = session.createQueue("inQueue");
-         outQueue = session.createQueue("outQueue");
+         outQueue = session.createQueue(outQueueName);
+         inQueue = session.createQueue(inQueueName);
          MessageProducer producer = session.createProducer(inQueue);
-         for (int i = 0; i < 1; i++)
+         for (int i = 0; i < 100; i++)
          {
             TextMessage msg = session.createTextMessage("msg " + i);
             msg.setIntProperty("i", i);
@@ -422,9 +425,16 @@ public class XATest extends HornetQServerTestCase
 
          connSource.start();
 
-         for (int i = 0; i < 2; i++)
+         for (int i = 0; i < 101; i++)
          {
             tm.begin();
+
+
+            ClientSessionInternal internalSessionSource = (ClientSessionInternal) sessionSource.getXAResource();
+            ClientSessionInternal internalSessionTarget = (ClientSessionInternal) sessionTarget.getXAResource();
+            internalSessionSource.resetIfNeeded();
+            internalSessionTarget.resetIfNeeded();
+
 
             Transaction tx = tm.getTransaction();
 
@@ -441,10 +451,9 @@ public class XATest extends HornetQServerTestCase
             tx.delistResource(sessionSource.getXAResource(), XAResource.TMSUCCESS);
             tx.delistResource(sessionTarget.getXAResource(), XAResource.TMSUCCESS);
 
-            ClientSessionInternal session = (ClientSessionInternal) sessionSource.getXAResource();
             if (i == 0)
             {
-               session.getConnection().fail(new HornetQException("forced failure"));
+               internalSessionSource.getConnection().fail(new HornetQException("forced failure"));
             }
 
             try
