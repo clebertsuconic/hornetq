@@ -13,6 +13,7 @@
 
 package org.hornetq.core.transaction.impl;
 
+import javax.transaction.xa.Xid;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,8 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.transaction.xa.Xid;
 
 import org.hornetq.core.server.HornetQServerLogger;
 import org.hornetq.core.transaction.ResourceManager;
