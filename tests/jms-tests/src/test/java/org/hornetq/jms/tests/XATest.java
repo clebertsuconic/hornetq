@@ -19,6 +19,7 @@ import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageListener;
 import javax.jms.MessageProducer;
+import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import javax.jms.XAConnection;
@@ -33,10 +34,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.arjuna.ats.internal.jta.transaction.arjunacore.TransactionManagerImple;
+import org.hornetq.api.core.HornetQException;
 import org.hornetq.core.client.impl.ClientSessionInternal;
 import org.hornetq.jms.tests.util.ProxyAssertSupport;
 import org.jboss.tm.TxUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -363,6 +366,99 @@ public class XATest extends HornetQServerTestCase
          if (conn2 != null)
          {
             conn2.close();
+         }
+      }
+   }
+
+
+   @Test
+   public void testConsumeAndProduceOneMessage() throws Exception
+   {
+      createQueue("outQueue");
+      createQueue("inQueue");
+
+      Queue inQueue;
+      Queue outQueue;
+
+      {
+         Connection conn = getConnectionFactory().createConnection();
+         Session session = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         inQueue = session.createQueue("inQueue");
+         outQueue = session.createQueue("outQueue");
+         MessageProducer producer = session.createProducer(inQueue);
+         for (int i = 0; i < 1; i++)
+         {
+            TextMessage msg = session.createTextMessage("msg " + i);
+            msg.setIntProperty("i", i);
+            producer.send(msg);
+         }
+         conn.close();
+      }
+
+
+      XAConnection connSource = null;
+      XAConnection connTarget = null;
+      try
+      {
+         connSource = xacf.createXAConnection();
+         connTarget = xacf.createXAConnection();
+
+
+         XASession sessionSource = connSource.createXASession();
+         XASession sessionTarget = connTarget.createXASession();
+
+         MessageConsumer consumer = sessionSource.createConsumer(inQueue);
+         MessageProducer producer = sessionTarget.createProducer(outQueue);
+
+         connSource.start();
+
+         for (int i = 0; i < 2; i++)
+         {
+            tm.begin();
+
+            Transaction tx = tm.getTransaction();
+
+            tx.enlistResource(sessionSource.getXAResource());
+            tx.enlistResource(sessionTarget.getXAResource());
+
+            TextMessage message = (TextMessage)consumer.receive(5000);
+            Assert.assertNotNull(message);
+
+            System.out.println("Received message " + message.getText());
+
+            producer.send(message);
+
+            tx.delistResource(sessionSource.getXAResource(), XAResource.TMSUCCESS);
+            tx.delistResource(sessionTarget.getXAResource(), XAResource.TMSUCCESS);
+
+            ClientSessionInternal session = (ClientSessionInternal) sessionSource.getXAResource();
+            if (i == 0)
+            {
+               session.getConnection().fail(new HornetQException("forced failure"));
+            }
+
+            try
+            {
+               tm.commit();
+            }
+            catch (Exception e)
+            {
+               tm.rollback();
+               e.printStackTrace();
+            }
+         }
+
+         Assert.assertNull(consumer.receiveNoWait());
+      }
+      finally
+      {
+         if (connSource != null)
+         {
+            connSource.close();
+         }
+         if (connTarget != null)
+         {
+            connTarget.close();
          }
       }
    }

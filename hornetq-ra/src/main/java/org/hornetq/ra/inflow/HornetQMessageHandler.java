@@ -389,7 +389,10 @@ public class HornetQMessageHandler implements MessageHandler
             message.acknowledge();
          }
 
-         this.currentTX = tm.getTransaction();
+         if (tm != null)
+         {
+            this.currentTX = tm.getTransaction();
+         }
 
          try
          {
