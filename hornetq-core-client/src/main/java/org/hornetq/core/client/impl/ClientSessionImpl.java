@@ -632,6 +632,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    public void rollback(final Xid xid) throws XAException
    {
+      new Exception("trace").printStackTrace();
       checkXA();
 
       if (HornetQClientLogger.LOGGER.isTraceEnabled())
@@ -670,6 +671,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       }
       catch (HornetQException e)
       {
+         e.printStackTrace();
          if (e.getType() == HornetQExceptionType.UNBLOCKED)
          {
             // Unblocked on failover

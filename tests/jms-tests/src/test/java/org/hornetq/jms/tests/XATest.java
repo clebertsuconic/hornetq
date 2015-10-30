@@ -35,7 +35,12 @@ import java.util.List;
 
 import com.arjuna.ats.internal.jta.transaction.arjunacore.TransactionManagerImple;
 import org.hornetq.api.core.HornetQException;
+import org.hornetq.api.core.TransportConfiguration;
+import org.hornetq.api.jms.HornetQJMSClient;
+import org.hornetq.api.jms.JMSFactoryType;
 import org.hornetq.core.client.impl.ClientSessionInternal;
+import org.hornetq.core.remoting.impl.netty.NettyConnectorFactory;
+import org.hornetq.jms.client.HornetQXAConnectionFactory;
 import org.hornetq.jms.tests.util.ProxyAssertSupport;
 import org.jboss.tm.TxUtils;
 import org.junit.After;
@@ -372,7 +377,7 @@ public class XATest extends HornetQServerTestCase
 
 
    @Test
-   public void testConsumeAndProduceOneMessage() throws Exception
+   public void testConsumeAndProduceFailureOneMessage() throws Exception
    {
       createQueue("outQueue");
       createQueue("inQueue");
@@ -396,12 +401,17 @@ public class XATest extends HornetQServerTestCase
       }
 
 
+      HornetQXAConnectionFactory connectionFactory = (HornetQXAConnectionFactory)HornetQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.XA_CF, new TransportConfiguration(NettyConnectorFactory.class.getName()));
+      connectionFactory.setRetryInterval(10);
+      connectionFactory.setReconnectAttempts(-1);
+
+
       XAConnection connSource = null;
       XAConnection connTarget = null;
       try
       {
-         connSource = xacf.createXAConnection();
-         connTarget = xacf.createXAConnection();
+         connSource = connectionFactory.createXAConnection();
+         connTarget = connectionFactory.createXAConnection();
 
 
          XASession sessionSource = connSource.createXASession();
@@ -443,7 +453,6 @@ public class XATest extends HornetQServerTestCase
             }
             catch (Exception e)
             {
-               tm.rollback();
                e.printStackTrace();
             }
          }
