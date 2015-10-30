@@ -221,7 +221,8 @@ public class MDBHandlerServerDisconnectTest extends HornetQRATestBase
          this.name = name;
 
       }
-      public void run ()
+
+      public void run()
       {
          try
          {

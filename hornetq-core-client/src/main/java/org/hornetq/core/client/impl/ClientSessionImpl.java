@@ -743,25 +743,10 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    public void resetIfNeeded() throws HornetQException
    {
-      if (rollbackOnly)
-      {
-         HornetQClientLogger.LOGGER.resettingSessionAfterFailure();
-         if (currentXID != null)
-         {
-            // Instead of sending a rollback, we send an end to cleanup any state on the Server's session
-            try
-            {
-               end(currentXID, TMSUCCESS);
-            }
-            catch (Throwable ignored)
-            {
-            }
-         }
-
-         workDone = false;
-         currentXID = null;
-         rollbackOnly = false;
-      }
+      // We won't send any rollbacks, let the TM do its work
+      workDone = false;
+      currentXID = null;
+      rollbackOnly = false;
    }
 
    public void start() throws HornetQException
@@ -1503,15 +1488,12 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       {
          if (rollbackOnly)
          {
-            try
+            if (currentXID != null)
             {
-               rollback(xid);
+               channel.send(new SessionXAAfterFailedMessage(currentXID));
             }
-            catch (Throwable ignored)
-            {
-               HornetQClientLogger.LOGGER.debug("Error on rollback during end call!", ignored);
-            }
-            throw new XAException(XAException.XAER_RMFAIL);
+
+            rollbackOnly = false;
          }
 
          try

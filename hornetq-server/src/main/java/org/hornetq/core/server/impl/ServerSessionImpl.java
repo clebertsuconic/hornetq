@@ -1058,12 +1058,9 @@ public class ServerSessionImpl implements ServerSession, FailureListener
          {
             if (!tx.isEffective())
             {
-               // we don't want to rollback anything prepared here
-               if (tx.getXid() != null)
-               {
-                  resourceManager.removeTransaction(tx.getXid());
-               }
-               tx.rollback();
+               // We just make sure it's on the resource manager
+               // it should been there already
+               resourceManager.putTransaction(tx.getXid(), tx);
             }
          }
          catch (Exception e)
