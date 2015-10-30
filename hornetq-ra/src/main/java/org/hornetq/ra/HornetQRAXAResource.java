@@ -68,6 +68,8 @@ public class HornetQRAXAResource implements XAResource
 
       managedConnection.lock();
 
+      managedConnection.lookupCurrentTransaction();
+
       ClientSessionInternal sessionInternal = (ClientSessionInternal) xaResource;
       try
       {
@@ -127,7 +129,11 @@ public class HornetQRAXAResource implements XAResource
          HornetQRALogger.LOGGER.trace("prepare(" + xid + ")");
       }
 
-      return xaResource.prepare(xid);
+      int retVal = xaResource.prepare(xid);
+
+      managedConnection.clearCurrentTransaction();
+
+      return retVal;
    }
 
    /**
@@ -144,6 +150,8 @@ public class HornetQRAXAResource implements XAResource
       }
 
       xaResource.commit(xid, onePhase);
+
+      managedConnection.clearCurrentTransaction();
    }
 
    /**
@@ -159,6 +167,8 @@ public class HornetQRAXAResource implements XAResource
       }
 
       xaResource.rollback(xid);
+
+      managedConnection.clearCurrentTransaction();
    }
 
    /**

@@ -26,6 +26,7 @@ import javax.resource.spi.work.WorkManager;
 import javax.transaction.xa.XAResource;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -295,6 +296,12 @@ public class HornetQActivation
          }
       }
       return xaresources;
+   }
+
+   // For testing
+   public List<HornetQMessageHandler> getHandlers()
+   {
+      return Collections.unmodifiableList(this.handlers);
    }
 
    /**

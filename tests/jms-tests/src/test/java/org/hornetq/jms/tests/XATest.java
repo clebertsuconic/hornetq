@@ -12,9 +12,6 @@
  */
 
 package org.hornetq.jms.tests;
-import java.util.ArrayList;
-import java.util.List;
-
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
@@ -32,9 +29,10 @@ import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.arjuna.ats.internal.jta.transaction.arjunacore.TransactionManagerImple;
-
 import org.hornetq.core.client.impl.ClientSessionInternal;
 import org.hornetq.jms.tests.util.ProxyAssertSupport;
 import org.jboss.tm.TxUtils;
@@ -1227,9 +1225,6 @@ public class XATest extends HornetQServerTestCase
 
          tm.rollback();
 
-         // Rollback causes cancel which is asynch
-         Thread.sleep(1000);
-
          // We cannot assume anything about the order in which the transaction manager rollsback
          // the sessions - this is implementation dependent
 
@@ -1368,9 +1363,6 @@ public class XATest extends HornetQServerTestCase
 
          cons1.close();
 
-         // Cancel is asynch
-         Thread.sleep(500);
-
          MessageConsumer cons2 = sess2.createConsumer(HornetQServerTestCase.queue1);
          TextMessage r2 = (TextMessage)cons2.receive(HornetQServerTestCase.MAX_TIMEOUT);
 
@@ -1390,9 +1382,6 @@ public class XATest extends HornetQServerTestCase
          tx.delistResource(res2, XAResource.TMSUCCESS);
 
          tm.rollback();
-
-         // Rollback causes cancel which is asynch
-         Thread.sleep(1000);
 
          // We cannot assume anything about the order in which the transaction manager rollsback
          // the sessions - this is implementation dependent
@@ -1559,8 +1548,6 @@ public class XATest extends HornetQServerTestCase
          {
             // We should expect this
          }
-
-         Thread.sleep(1000);
 
          Session sess = conn2.createSession(false, Session.AUTO_ACKNOWLEDGE);
          MessageConsumer cons = sess.createConsumer(HornetQServerTestCase.queue1);
@@ -2192,6 +2179,7 @@ public class XATest extends HornetQServerTestCase
 
          // suspend the tx
          Transaction suspended = tm.suspend();
+         tx1.delistResource(res1, XAResource.TMSUSPEND);
 
          tm.begin();
 
@@ -2216,10 +2204,10 @@ public class XATest extends HornetQServerTestCase
 
          ProxyAssertSupport.assertNull(r1);
 
+         tx1.delistResource(res1, XAResource.TMSUCCESS);
+
          // now resume the first tx and then commit it
          tm.resume(suspended);
-
-         tx1.delistResource(res1, XAResource.TMSUCCESS);
 
          tm.commit();
 
