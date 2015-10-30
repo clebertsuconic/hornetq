@@ -407,6 +407,7 @@ public class XATest extends HornetQServerTestCase
       HornetQXAConnectionFactory connectionFactory = (HornetQXAConnectionFactory)HornetQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.XA_CF, new TransportConfiguration(NettyConnectorFactory.class.getName()));
       connectionFactory.setRetryInterval(10);
       connectionFactory.setReconnectAttempts(-1);
+      connectionFactory.setConsumerWindowSize(1024 * 1024 );
 
 
       XAConnection connSource = null;
@@ -451,7 +452,7 @@ public class XATest extends HornetQServerTestCase
             tx.delistResource(sessionSource.getXAResource(), XAResource.TMSUCCESS);
             tx.delistResource(sessionTarget.getXAResource(), XAResource.TMSUCCESS);
 
-            if (i == 0)
+            if (i == 9)
             {
                internalSessionSource.getConnection().fail(new HornetQException("forced failure"));
             }
@@ -464,6 +465,11 @@ public class XATest extends HornetQServerTestCase
             {
                e.printStackTrace();
             }
+            if (i == 10)
+            {
+               internalSessionSource.getConnection().fail(new HornetQException("forced failure"));
+            }
+
          }
 
          Assert.assertNull(consumer.receiveNoWait());

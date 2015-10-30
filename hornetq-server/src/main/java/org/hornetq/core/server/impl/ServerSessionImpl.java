@@ -1093,18 +1093,18 @@ public class ServerSessionImpl implements ServerSession, FailureListener
 
       if (theTX == null)
       {
-         tx = newTransaction(xid);
+         theTX = newTransaction(xid);
          resourceManager.putTransaction(xid, tx);
       }
 
-      if (tx.isEffective())
+      if (theTX.isEffective())
       {
          HornetQServerLogger.LOGGER.debug("Client failed with Xid " + xid + " but the server already had it prepared");
          tx = null;
       }
       else
       {
-         tx.markAsRollbackOnly(new HornetQException("Can't commit as a Failover happened during the operation"));
+         theTX.markAsRollbackOnly(new HornetQException("Can't commit as a Failover happened during the operation"));
       }
 
       if (isTrace)
