@@ -123,6 +123,7 @@ public class MDBHandlerServerDisconnectTest extends HornetQRATestBase
 
       ClientSession session = locator.createSessionFactory().createSession();
 
+//         myThread.start();
       ClientProducer clientProducer = session.createProducer(MDBQUEUEPREFIXED);
 
       final int NUMBER_OF_MESSAGES = 100;
@@ -155,6 +156,8 @@ public class MDBHandlerServerDisconnectTest extends HornetQRATestBase
       factory.getConnection().fail(new HornetQConnectionTimedOutException("failure"));
 
       endpoint.latchWait.countDown();
+
+      Thread.sleep(5000);
 
 
 
@@ -236,6 +239,36 @@ public class MDBHandlerServerDisconnectTest extends HornetQRATestBase
 
       public void onMessage(Message message)
       {
+         try
+         {
+            System.out.println("onMessage enter " + message.getIntProperty("i"));
+         }
+         catch (Exception e)
+         {
+         }
+
+         Integer value = 0;
+
+         try
+         {
+            value = message.getIntProperty("i");
+         }
+         catch (Exception e)
+         {
+
+         }
+
+         AtomicInteger mapCount = new AtomicInteger(1);
+
+         mapCount = mapCounter.putIfAbsent(value, mapCount);
+
+         if (mapCount != null)
+         {
+            System.out.println("Received in duplicate for " + value + " on thread " + name);
+//                     System.exit(-1);
+            mapCount.incrementAndGet();
+         }
+
          super.onMessage(message);
 
          try
@@ -271,6 +304,7 @@ public class MDBHandlerServerDisconnectTest extends HornetQRATestBase
          {
             e.printStackTrace();
          }
+//         System.out.println("onMessage after wait");
 
 //         try
 //         {
