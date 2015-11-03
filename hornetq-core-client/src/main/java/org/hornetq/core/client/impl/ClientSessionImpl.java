@@ -191,8 +191,6 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    private volatile SimpleString defaultAddress;
 
-   private boolean xaRetry = false;
-
    /**
     * Current XID. this will be used in case of failover
     */
@@ -566,6 +564,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       {
          rollbackOnFailover(true);
       }
+
       try
       {
          channel.sendBlocking(new PacketImpl(PacketImpl.SESS_COMMIT), PacketImpl.NULL_RESPONSE);
@@ -592,7 +591,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
          rollbackOnFailover(false);
       }
 
-      workDone = false;
+      resetIfNeeded();
    }
 
    public boolean isRollbackOnly()
@@ -607,43 +606,97 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    public void rollback(final boolean isLastMessageAsDelivered) throws HornetQException
    {
+      try
+      {
+         if (HornetQClientLogger.LOGGER.isTraceEnabled())
+         {
+            HornetQClientLogger.LOGGER.trace("calling rollback(isLastMessageAsDelivered=" + isLastMessageAsDelivered + ")");
+         }
+         checkClosed();
+
+         boolean wasStarted = rollbackCleanup();
+
+         channel.sendBlocking(new RollbackMessage(isLastMessageAsDelivered), PacketImpl.NULL_RESPONSE);
+
+         if (wasStarted)
+         {
+            start();
+         }
+      }
+      finally
+      {
+         resetIfNeeded();
+      }
+
+   }
+
+   public void rollback(final Xid xid) throws XAException
+   {
+      checkXA();
+
       if (HornetQClientLogger.LOGGER.isTraceEnabled())
       {
-         HornetQClientLogger.LOGGER.trace("calling rollback(isLastMessageAsDelivered=" + isLastMessageAsDelivered + ")");
+         HornetQClientLogger.LOGGER.trace("Calling rollback:: " + convert(xid));
       }
-      checkClosed();
 
-      // We do a "JMS style" rollback where the session is stopped, and the buffer is cancelled back
-      // first before rolling back
-      // This ensures messages are received in the same order after rollback w.r.t. to messages in the buffer
-      // For core we could just do a straight rollback, it really depends if we want JMS style semantics or not...
-
-      boolean wasStarted = started;
-
-      if (wasStarted)
+      try
       {
-         stop();
+         boolean wasStarted = rollbackCleanup();
+
+
+         SessionXARollbackMessage packet = new SessionXARollbackMessage(xid);
+
+         SessionXAResponseMessage response;
+         try
+         {
+            response = (SessionXAResponseMessage)channel.sendBlocking(packet, PacketImpl.SESS_XA_RESP);
+         }
+         finally
+         {
+            if (wasStarted)
+            {
+               start();
+            }
+         }
+
+         if (response.isError())
+         {
+            throw new XAException(response.getResponseCode());
+         }
       }
-
-
-      // We need to make sure we don't get any inflight messages
-      for (ClientConsumerInternal consumer : cloneConsumers())
+      catch (XAException xae)
       {
-         consumer.clear(true);
+         throw xae;
       }
-
-      // Acks must be flushed here *after connection is stopped and all onmessages finished executing
-      flushAcks();
-
-      channel.sendBlocking(new RollbackMessage(isLastMessageAsDelivered), PacketImpl.NULL_RESPONSE);
-
-      if (wasStarted)
+      catch (HornetQException e)
       {
-         start();
-      }
+         e.printStackTrace();
+         if (e.getType() == HornetQExceptionType.UNBLOCKED)
+         {
+            // Unblocked on failover
+            throw new XAException(XAException.XA_RETRY);
+         }
 
-      rollbackOnly = false;
+         // This should never occur
+         XAException xaException = new XAException(XAException.XAER_RMFAIL);
+         xaException.initCause(e);
+         throw xaException;
+      }
+      catch (Throwable t)
+      {
+         // This could occur if the TM interrupts the thread
+         XAException xaException = new XAException(XAException.XAER_RMFAIL);
+         xaException.initCause(t);
+         throw xaException;
+      }
+      finally
+      {
+         workDone = false;
+         currentXID = null;
+         rollbackOnly = false;
+      }
    }
+
 
    public ClientMessage createMessage(final byte type,
                                       final boolean durable,
@@ -689,13 +742,12 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       return xa;
    }
 
-   public void resetIfNeeded() throws HornetQException
+   public void resetIfNeeded()
    {
-      if (rollbackOnly)
-      {
-         HornetQClientLogger.LOGGER.resettingSessionAfterFailure();
-         rollback(false);
-      }
+      // We won't send any rollbacks, let the TM do its work
+      workDone = false;
+      currentXID = null;
+      rollbackOnly = false;
    }
 
    public void start() throws HornetQException
@@ -1396,7 +1448,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       {
          SessionXAResponseMessage response = (SessionXAResponseMessage)channel.sendBlocking(packet, PacketImpl.SESS_XA_RESP);
 
-         workDone = false;
+         resetIfNeeded();
 
          if (response.isError())
          {
@@ -1416,8 +1468,6 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       {
          HornetQClientLogger.LOGGER.failoverDuringCommit();
 
-         // Unblocked on failover
-         xaRetry = true;
          // Any error on commit -> RETRY
          // We can't rollback a Prepared TX for definition
          XAException xaException = new XAException(XAException.XA_RETRY);
@@ -1443,15 +1493,8 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       {
          if (rollbackOnly)
          {
-            try
-            {
-               rollback();
-            }
-            catch (Throwable ignored)
-            {
-               HornetQClientLogger.LOGGER.debug("Error on rollback during end call!", ignored);
-            }
-            throw new XAException(XAException.XAER_RMFAIL);
+            // If we get a rollbackonly, we set the server as rollback only
+            channel.send(new SessionXAAfterFailedMessage(xid));
          }
 
          try
@@ -1610,60 +1653,12 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
          }
          else
          {
-            xaRetry = false;
             return response.getResponseCode();
          }
       }
       catch (XAException xae)
       {
          throw xae;
-      }
-      catch (HornetQException e)
-      {
-         if (e.getType() == HornetQExceptionType.UNBLOCKED)
-         {
-            // Unblocked on failover
-            try
-            {
-               HornetQClientLogger.LOGGER.failoverDuringPrepare();
-               SessionXAResponseMessage response = (SessionXAResponseMessage)channel.sendBlocking(packet, PacketImpl.SESS_XA_RESP);
-
-               if (response.isError())
-               {
-                  throw new XAException(response.getResponseCode());
-               }
-
-               xaRetry = false;
-               return response.getResponseCode();
-            }
-            catch (Throwable t)
-            {
-               // ignore and rollback
-            }
-            HornetQClientLogger.LOGGER.failoverDuringPrepareRollingBack();
-            try
-            {
-               rollback(false);
-            }
-            catch (Throwable t)
-            {
-               // This could occur if the TM interrupts the thread
-               XAException xaException = new XAException(XAException.XAER_RMFAIL);
-               xaException.initCause(t);
-               throw xaException;
-            }
-
-            HornetQClientLogger.LOGGER.errorDuringPrepare(e);
-
-            throw new XAException(XAException.XAER_RMFAIL);
-         }
-
-         HornetQClientLogger.LOGGER.errorDuringPrepare(e);
-
-         // This should never occur
-         XAException xaException = new XAException(XAException.XAER_RMFAIL);
-         xaException.initCause(e);
-         throw xaException;
       }
       catch (Throwable t)
       {
@@ -1708,80 +1703,28 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       return new Xid[0];
    }
 
-   public void rollback(final Xid xid) throws XAException
+   private boolean rollbackCleanup() throws HornetQException
    {
-      checkXA();
+      // We do a "JMS style" rollback where the session is stopped, and the buffer is cancelled back
+      // first before rolling back
+      // This ensures messages are received in the same order after rollback w.r.t. to messages in the buffer
+      // For core we could just do a straight rollback, it really depends if we want JMS style semantics or not...
 
-      if (HornetQClientLogger.LOGGER.isTraceEnabled())
+      boolean wasStarted = started;
+
+      if (wasStarted)
       {
-         HornetQClientLogger.LOGGER.trace("Calling rollback:: " + convert(xid));
+         stop(false);
       }
 
-      try
+      // We need to make sure we don't get any inflight messages
+      for (ClientConsumerInternal consumer : cloneConsumers())
       {
-         boolean wasStarted = started;
-
-         if (wasStarted)
-         {
-            stop(false);
-         }
-
-         // We need to make sure we don't get any inflight messages
-         for (ClientConsumerInternal consumer : cloneConsumers())
-         {
-            consumer.clear(false);
-         }
-
-         flushAcks();
-
-         SessionXARollbackMessage packet = new SessionXARollbackMessage(xid);
-
-         SessionXAResponseMessage response;
-         try
-         {
-            response = (SessionXAResponseMessage)channel.sendBlocking(packet, PacketImpl.SESS_XA_RESP);
-         }
-         finally
-         {
-            if (wasStarted)
-            {
-               start();
-            }
-         }
-
-
-         workDone = false;
-
-         if (response.isError())
-         {
-            throw new XAException(response.getResponseCode());
-         }
+         consumer.clear(true);
       }
-      catch (XAException xae)
-      {
-         throw xae;
-      }
-      catch (HornetQException e)
-      {
-         if (e.getType() == HornetQExceptionType.UNBLOCKED)
-         {
-            // Unblocked on failover
-            xaRetry = true;
-            throw new XAException(XAException.XA_RETRY);
-         }
 
-         // This should never occur
-         XAException xaException = new XAException(XAException.XAER_RMFAIL);
-         xaException.initCause(e);
-         throw xaException;
-      }
-      catch (Throwable t)
-      {
-         // This could occur if the TM interrupts the thread
-         XAException xaException = new XAException(XAException.XAER_RMFAIL);
-         xaException.initCause(t);
-         throw xaException;
-      }
+      flushAcks();
+      return wasStarted;
    }
 
    public boolean setTransactionTimeout(final int seconds) throws XAException
@@ -1811,6 +1754,8 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
       }
 
       checkXA();
+
+      resetIfNeeded();
 
       Packet packet = null;
 

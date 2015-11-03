@@ -28,6 +28,8 @@ import org.hornetq.api.core.SimpleString;
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.api.core.client.ClientSession.QueueQuery;
 import org.hornetq.api.core.client.ClientSessionFactory;
+import org.hornetq.api.core.client.FailoverEventListener;
+import org.hornetq.api.core.client.FailoverEventType;
 import org.hornetq.api.core.client.MessageHandler;
 import org.hornetq.core.client.impl.ClientConsumerInternal;
 import org.hornetq.core.client.impl.ClientSessionInternal;
@@ -74,6 +76,8 @@ public class HornetQMessageHandler implements MessageHandler
 
    private final TransactionManager tm;
 
+   private volatile Transaction currentTX;
+
    private ClientSessionFactory cf;
 
    public HornetQMessageHandler(final HornetQActivation activation,
@@ -110,7 +114,7 @@ public class HornetQMessageHandler implements MessageHandler
          if (clientID == null)
          {
             throw new InvalidClientIDException("Cannot create durable subscription for " + subscriptionName +
-                                               " - client ID has not been set");
+                                                  " - client ID has not been set");
          }
 
          SimpleString queueName = new SimpleString(HornetQDestination.createQueueNameForDurableSubscription(clientID,
@@ -135,18 +139,18 @@ public class HornetQMessageHandler implements MessageHandler
                else if (HornetQRALogger.LOGGER.isDebugEnabled())
                {
                   HornetQRALogger.LOGGER.debug("the mdb on destination " + queueName + " already had " +
-                     subResponse.getConsumerCount() +
-                     " consumers but the MDB is configured to share subscriptions, so no exceptions are thrown");
+                                                  subResponse.getConsumerCount() +
+                                                  " consumers but the MDB is configured to share subscriptions, so no exceptions are thrown");
                }
             }
 
             SimpleString oldFilterString = subResponse.getFilterString();
 
             boolean selectorChanged = selector == null && oldFilterString != null ||
-                                      oldFilterString == null &&
-                                      selector != null ||
-                                      (oldFilterString != null && selector != null && !oldFilterString.toString()
-                                                                                                      .equals(selector));
+               oldFilterString == null &&
+                  selector != null ||
+               (oldFilterString != null && selector != null && !oldFilterString.toString()
+                  .equals(selector));
 
             SimpleString oldTopicName = subResponse.getAddress();
 
@@ -161,7 +165,7 @@ public class HornetQMessageHandler implements MessageHandler
                session.createQueue(activation.getAddress(), queueName, selectorString, true);
             }
          }
-         consumer = (ClientConsumerInternal)session.createConsumer(queueName, null, false);
+         consumer = (ClientConsumerInternal) session.createConsumer(queueName, null, false);
       }
       else
       {
@@ -190,7 +194,7 @@ public class HornetQMessageHandler implements MessageHandler
          {
             tempQueueName = activation.getAddress();
          }
-         consumer = (ClientConsumerInternal)session.createConsumer(tempQueueName, selectorString);
+         consumer = (ClientConsumerInternal) session.createConsumer(tempQueueName, selectorString);
       }
 
       // Create the endpoint, if we are transacted pass the sesion so it is enlisted, unless using Local TX
@@ -207,7 +211,34 @@ public class HornetQMessageHandler implements MessageHandler
          endpoint = endpointFactory.createEndpoint(null);
          useXA = false;
       }
+
+      session.addFailoverListener(new FailoverListener());
+
       consumer.setMessageHandler(this);
+   }
+
+
+   class FailoverListener implements FailoverEventListener
+   {
+
+      @Override
+      public void failoverEvent(FailoverEventType eventType)
+      {
+         Transaction tx = currentTX;
+
+         if (tx != null)
+         {
+            try
+            {
+               HornetQRALogger.LOGGER.debug("Making TX as rollback only due to a failover event");
+               tx.setRollbackOnly();
+            }
+            catch (Throwable e)
+            {
+               HornetQRALogger.LOGGER.warn(e.getMessage(), e);
+            }
+         }
+      }
    }
 
    XAResource getXAResource()
@@ -312,11 +343,13 @@ public class HornetQMessageHandler implements MessageHandler
 
       try
       {
+         endpoint.beforeDelivery(HornetQActivation.ONMESSAGE);
+
          if (activation.getActivationSpec().getTransactionTimeout() > 0 && tm != null)
          {
             tm.setTransactionTimeout(activation.getActivationSpec().getTransactionTimeout());
          }
-         endpoint.beforeDelivery(HornetQActivation.ONMESSAGE);
+
          beforeDelivery = true;
          msg.doBeforeReceive();
 
@@ -327,22 +360,36 @@ public class HornetQMessageHandler implements MessageHandler
             message.acknowledge();
          }
 
-         ((MessageListener)endpoint).onMessage(msg);
-
-         if (!transacted)
+         if (tm != null)
          {
-            message.acknowledge();
+            this.currentTX = tm.getTransaction();
          }
 
          try
          {
-            endpoint.afterDelivery();
+
+            ((MessageListener) endpoint).onMessage(msg);
+
+            if (!transacted)
+            {
+               message.acknowledge();
+            }
+
+            try
+            {
+               endpoint.afterDelivery();
+            }
+            catch (ResourceException e)
+            {
+               HornetQRALogger.LOGGER.unableToCallAfterDelivery(e);
+               return;
+            }
          }
-         catch (ResourceException e)
+         finally
          {
-            HornetQRALogger.LOGGER.unableToCallAfterDelivery(e);
-            return;
+            currentTX = null;
          }
+
          if (useLocalTx)
          {
             session.commit();
@@ -416,14 +463,7 @@ public class HornetQMessageHandler implements MessageHandler
       }
       finally
       {
-         try
-         {
-            session.resetIfNeeded();
-         }
-         catch (HornetQException e)
-         {
-            HornetQRALogger.LOGGER.unableToResetSession();
-         }
+         session.resetIfNeeded();
       }
 
    }

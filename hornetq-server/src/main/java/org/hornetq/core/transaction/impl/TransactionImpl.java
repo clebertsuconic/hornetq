@@ -109,6 +109,12 @@ public class TransactionImpl implements Transaction
    // Transaction implementation
    // -----------------------------------------------------------
 
+   public boolean isEffective()
+   {
+      return state == State.PREPARED || state == State.COMMITTED;
+
+   }
+
    public void setContainsPersistent()
    {
       containsPersistent = true;
@@ -157,11 +163,6 @@ public class TransactionImpl implements Transaction
             {
                if (exception != null)
                {
-                  // this TX will never be rolled back,
-                  // so we reset it now
-                  beforeRollback();
-                  afterRollback();
-                  operations.clear();
                   throw exception;
                }
                else
@@ -218,6 +219,12 @@ public class TransactionImpl implements Transaction
    {
       synchronized (timeoutLock)
       {
+         if (state == State.COMMITTED)
+         {
+            // I don't think this could happen, but just in case
+            HornetQServerLogger.LOGGER.debug("XID " + xid + " has been committed before, just ignoring the commit call");
+            return;
+         }
          if (state == State.ROLLBACK_ONLY)
          {
             rollback();
@@ -281,17 +288,24 @@ public class TransactionImpl implements Transaction
    {
       if (containsPersistent || xid != null && state == State.PREPARED)
       {
-
+         // ^^ These are the scenarios where we require a storage.commit
+         // for anything else we won't use the journal
          storageManager.commit(id);
-
-         state = State.COMMITTED;
       }
+
+      state = State.COMMITTED;
    }
 
    public void rollback() throws Exception
    {
       synchronized (timeoutLock)
       {
+         if (state == State.ROLLEDBACK)
+         {
+            // I don't think this could happen, but just in case
+            HornetQServerLogger.LOGGER.debug("XID " + xid + " has been rolledBack before, just ignoring the rollback call", new Exception("trace"));
+            return;
+         }
          if (xid != null)
          {
             if (state != State.PREPARED && state != State.ACTIVE && state != State.ROLLBACK_ONLY)
