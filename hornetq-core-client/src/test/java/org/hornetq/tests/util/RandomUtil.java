@@ -96,6 +96,11 @@ public final class RandomUtil
 
    public static int randomMax(final int max)
    {
+      if (max == 0)
+      {
+         return 0;
+      }
+
       int value = randomPositiveInt() % max;
 
       if (value == 0)

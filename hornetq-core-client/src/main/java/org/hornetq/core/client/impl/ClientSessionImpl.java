@@ -91,6 +91,7 @@ import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.utils.IDGenerator;
 import org.hornetq.utils.SimpleIDGenerator;
 import org.hornetq.utils.TokenBucketLimiterImpl;
+import org.hornetq.utils.UUIDGenerator;
 import org.hornetq.utils.XidCodecSupport;
 
 /**
@@ -106,7 +107,7 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    private final ClientSessionFactoryInternal sessionFactory;
 
-   private final String name;
+   private volatile String name;
 
    private final String username;
 
@@ -1043,6 +1044,10 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
             }
             else
             {
+
+               // We change the name of the Session, otherwise the server could close it while we are still sending the recreate
+               // in certain failure scenarios
+               this.name = UUIDGenerator.getInstance().generateStringUUID();
 
                HornetQClientLogger.LOGGER.creatingNewSession(channel.getID());
 
