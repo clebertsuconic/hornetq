@@ -1054,19 +1054,8 @@ public class ServerSessionImpl implements ServerSession, FailureListener
       {
          HornetQServerLogger.LOGGER.xidReplacedOnXStart(tx.getXid().toString(), xid.toString());
 
-         try
-         {
-            if (!tx.isEffective())
-            {
-               // We just make sure it's on the resource manager
-               // it should been there already
-               resourceManager.putTransaction(tx.getXid(), tx);
-            }
-         }
-         catch (Exception e)
-         {
-            HornetQServerLogger.LOGGER.debug("An exception happened while we tried to debug the previous tx, we can ignore this exception", e);
-         }
+         // We can't do anything here, as we can't mess with the TM's XIDs
+         // At the worse timeout should take care of it
       }
 
       tx = newTransaction(xid);

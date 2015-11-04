@@ -12,8 +12,6 @@
  */
 package org.hornetq.ra.inflow;
 
-import java.util.UUID;
-
 import javax.jms.InvalidClientIDException;
 import javax.jms.MessageListener;
 import javax.resource.ResourceException;
@@ -22,6 +20,7 @@ import javax.resource.spi.endpoint.MessageEndpointFactory;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
+import java.util.UUID;
 
 import org.hornetq.api.core.HornetQException;
 import org.hornetq.api.core.SimpleString;
@@ -414,6 +413,7 @@ public class HornetQMessageHandler implements MessageHandler
                // this is to avoid a scenario where afterDelivery would kick in
                try
                {
+                  tm.setRollbackOnly();
                   Transaction tx = tm.getTransaction();
                   if (tx != null)
                   {
@@ -423,15 +423,6 @@ public class HornetQMessageHandler implements MessageHandler
                catch (Exception e1)
                {
                   HornetQRALogger.LOGGER.warn("unnable to clear the transaction", e1);
-                  try
-                  {
-                     session.rollback();
-                  }
-                  catch (HornetQException e2)
-                  {
-                     HornetQRALogger.LOGGER.warn("Unable to rollback", e2);
-                     return;
-                  }
                }
             }
 
