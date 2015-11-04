@@ -159,6 +159,11 @@ public class TransactionImpl implements Transaction
       {
          synchronized (timeoutLock)
          {
+            if (isEffective())
+            {
+               HornetQServerLogger.LOGGER.debug("XID " + xid + " has already been prepared or committed before, just ignoring the prepare call");
+               return;
+            }
             if (state == State.ROLLBACK_ONLY)
             {
                if (exception != null)
@@ -227,7 +232,16 @@ public class TransactionImpl implements Transaction
          }
          if (state == State.ROLLBACK_ONLY)
          {
-            rollback();
+
+            if (xid == null)
+            {
+               HornetQServerLogger.LOGGER.debug("Transaction had failed before. A Call to commit is causing a rollback!");
+               rollback();
+            }
+            else
+            {
+               HornetQServerLogger.LOGGER.warn("Transaction with XID " + xid + " had failed before. throwing exception to the client with message " + exception.getMessage());
+            }
 
             if (exception != null)
             {
@@ -347,20 +361,26 @@ public class TransactionImpl implements Transaction
 
    public void suspend()
    {
-      if (state != State.ACTIVE)
+      synchronized (timeoutLock)
       {
-         throw new IllegalStateException("Can only suspend active transaction");
+         if (state != State.ACTIVE)
+         {
+            throw new IllegalStateException("Can only suspend active transaction");
+         }
+         state = State.SUSPENDED;
       }
-      state = State.SUSPENDED;
    }
 
    public void resume()
    {
-      if (state != State.SUSPENDED)
+      synchronized (timeoutLock)
       {
-         throw new IllegalStateException("Can only resume a suspended transaction");
+         if (state != State.SUSPENDED)
+         {
+            throw new IllegalStateException("Can only resume a suspended transaction");
+         }
+         state = State.ACTIVE;
       }
-      state = State.ACTIVE;
    }
 
    public Transaction.State getState()
@@ -380,13 +400,23 @@ public class TransactionImpl implements Transaction
 
    public void markAsRollbackOnly(final HornetQException exception1)
    {
-      if (HornetQServerLogger.LOGGER.isDebugEnabled())
+      synchronized (timeoutLock)
       {
-         HornetQServerLogger.LOGGER.debug("Marking Transaction " + this.id + " as rollback only");
-      }
-      state = State.ROLLBACK_ONLY;
+         if (isEffective())
+         {
+            HornetQServerLogger.LOGGER.debug("Trying to mark transaction " + this.id + " xid=" + this.xid + " as rollbackOnly but it was already effective (prepared or committed!)");
+            // let it be, let it be.. nothing we can do at this point!!!
+            return;
+         }
 
-      this.exception = exception1;
+         if (HornetQServerLogger.LOGGER.isDebugEnabled())
+         {
+            HornetQServerLogger.LOGGER.debug("Marking Transaction " + this.id + " as rollback only");
+         }
+         state = State.ROLLBACK_ONLY;
+
+         this.exception = exception1;
+      }
    }
 
    public synchronized void addOperation(final TransactionOperation operation)
@@ -519,6 +549,7 @@ public class TransactionImpl implements Transaction
       return "TransactionImpl [xid=" + xid +
          ", id=" +
          id +
+         ", xid=" + xid +
          ", state=" +
          state +
          ", createTime=" +

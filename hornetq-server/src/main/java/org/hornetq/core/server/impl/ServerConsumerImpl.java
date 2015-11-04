@@ -317,7 +317,7 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
 
          if (HornetQServerLogger.LOGGER.isTraceEnabled())
          {
-            HornetQServerLogger.LOGGER.trace("Handling reference " + ref);
+            HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" + this + " Handling reference " + ref);
          }
 
          if (!browseOnly)
@@ -408,6 +408,11 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
    @Override
    public void close(final boolean failed) throws Exception
    {
+      if (isTrace)
+      {
+         HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" +  this + " being closed with failed=" + failed, new Exception("trace"));
+      }
+
       callback.removeReadyListener(this);
 
       setStarted(false);
@@ -430,6 +435,11 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
       while (iter.hasNext())
       {
          MessageReference ref = iter.next();
+
+         if (isTrace)
+         {
+            HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" +  this + " cancelling reference " + ref);
+         }
 
          ref.getQueue().cancel(tx, ref, true);
       }
@@ -565,7 +575,7 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
          {
             if (isTrace)
             {
-               HornetQServerLogger.LOGGER.trace("Cancelling reference for messageID = " + ref.getMessage().getMessageID() + ", ref = " + ref);
+               HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" + this + " Cancelling reference for messageID = " + ref.getMessage().getMessageID() + ", ref = " + ref);
             }
             if (performACK)
             {

@@ -630,6 +630,15 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
 
    }
 
+   /*
+     Note for developers:
+
+     "- YOU SHALL NOT MESS UP WITH THE TM's TRANSACTIONS"
+     "- A TRANSACTION CAN ONLY BE ROLLED BACK BY THE TRANSACTION MANAGER"
+
+     Please.. really.. dont ever call this method within our codebase (unless tests of course)
+
+    */
    public void rollback(final Xid xid) throws XAException
    {
       checkXA();
