@@ -199,12 +199,12 @@ public class MDBMultipleHandlersServerDisconnectTest extends HornetQRATestBase
 
                for (ServerSession session: server.getSessions())
                {
-                  System.err.println("scan " + session);
                   if (session.getMetaData("resource-adapter") != null)
                   {
                      serverSessions.add(session);
                   }
                }
+
                System.err.println("Contains " + serverSessions.size() + " RA sessions");
 
                if (serverSessions.size() > 0)
