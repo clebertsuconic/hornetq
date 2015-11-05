@@ -569,35 +569,46 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
 
       LinkedList<MessageReference> refs = new LinkedList<MessageReference>();
 
-      if (!deliveringRefs.isEmpty())
+      synchronized (lock)
       {
-         for (MessageReference ref : deliveringRefs)
+         if (!deliveringRefs.isEmpty())
          {
-            if (isTrace)
+            for (MessageReference ref : deliveringRefs)
             {
-               HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" + this + " Cancelling reference for messageID = " + ref.getMessage().getMessageID() + ", ref = " + ref);
-            }
-            if (performACK)
-            {
-               acknowledge(false, tx, ref.getMessage().getMessageID());
-
-               performACK = false;
-            }
-            else
-            {
-               if (!failed)
-               {
-                  // We don't decrement delivery count if the client failed, since there's a possibility that refs
-                  // were actually delivered but we just didn't get any acks for them
-                  // before failure
-                  ref.decrementDeliveryCount();
-               }
-
                refs.add(ref);
+
+               if (isTrace)
+               {
+                  HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" + this + " Preparing Cancelling list for messageID = " + ref.getMessage().getMessageID() + ", ref = " + ref);
+               }
+            }
+
+            deliveringRefs.clear();
+         }
+      }
+
+      for (MessageReference ref : refs)
+      {
+         if (isTrace)
+         {
+            HornetQServerLogger.LOGGER.trace("ServerConsumerImpl::" + this + " Cancelling reference for messageID = " + ref.getMessage().getMessageID() + ", ref = " + ref);
+         }
+         if (performACK)
+         {
+            acknowledge(false, tx, ref.getMessage().getMessageID());
+
+            performACK = false;
+         }
+         else
+         {
+            if (!failed)
+            {
+               // We don't decrement delivery count if the client failed, since there's a possibility that refs
+               // were actually delivered but we just didn't get any acks for them
+               // before failure
+               ref.decrementDeliveryCount();
             }
          }
-
-         deliveringRefs.clear();
       }
 
       return refs;

@@ -25,7 +25,9 @@ import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.hornetq.api.core.HornetQException;
@@ -34,6 +36,7 @@ import org.hornetq.api.jms.HornetQJMSClient;
 import org.hornetq.api.jms.JMSFactoryType;
 import org.hornetq.core.client.impl.ClientSessionInternal;
 import org.hornetq.core.server.ServerSession;
+import org.hornetq.core.settings.impl.AddressSettings;
 import org.hornetq.jms.client.HornetQConnectionFactory;
 import org.hornetq.jms.client.HornetQSession;
 import org.hornetq.tests.util.JMSTestBase;
@@ -48,6 +51,10 @@ public class ConcurrentDeliveryCancelTest extends JMSTestBase
    public void testConcurrentCancels() throws Exception
    {
 
+      server.getAddressSettingsRepository().clear();
+      AddressSettings settings = new AddressSettings();
+      settings.setMaxDeliveryAttempts(-1);
+      server.getAddressSettingsRepository().addMatch("#", settings);
       List<TransportConfiguration> connectorConfigs = new ArrayList<TransportConfiguration>();
       HornetQConnectionFactory cf = HornetQJMSClient.createConnectionFactoryWithHA(JMSFactoryType.CF, new TransportConfiguration(NETTY_CONNECTOR_FACTORY));
       cf.setReconnectAttempts(0);
@@ -93,15 +100,56 @@ public class ConcurrentDeliveryCancelTest extends JMSTestBase
 
          System.out.println(".....");
 
+         final List<ServerSession> serverSessions = new LinkedList<ServerSession>();
+
          // We will force now the failure simultaneously from several places
          for (ServerSession srvSess : server.getSessions())
          {
             System.out.println(srvSess);
-            srvSess.getRemotingConnection().fail(new HornetQException("fail"));
+            serverSessions.add(srvSess);
          }
+
+
+         int NTHREADS = 10;
+         final CountDownLatch alignLatch = new CountDownLatch(NTHREADS);
+         final CountDownLatch flagStart = new CountDownLatch(1);
+
+         List<Thread> threads = new LinkedList<Thread>();
+
+         for (int i1 = 0; i1 < NTHREADS; i1++)
+         {
+            threads.add(new Thread()
+            {
+               public void run()
+               {
+                  alignLatch.countDown();
+                  for (int i = 0; i < 2; i++)
+                  {
+                     for (ServerSession sess : serverSessions)
+                     {
+                        sess.getRemotingConnection().fail(new HornetQException("failure"));
+                     }
+                  }
+               }
+            });
+         }
+
+         for (Thread t : threads)
+         {
+            t.start();
+         }
+
+         alignLatch.await();
+         flagStart.countDown();
+
          ClientSessionInternal impl = (ClientSessionInternal) ((HornetQSession)session).getCoreSession();
          impl.getConnection().fail(new HornetQException("failure"));
          connection.close();
+
+         for (Thread t: threads)
+         {
+            t.join();
+         }
       }
 
       connection = cf.createConnection();
