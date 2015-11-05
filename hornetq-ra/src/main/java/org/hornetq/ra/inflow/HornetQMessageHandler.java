@@ -12,8 +12,6 @@
  */
 package org.hornetq.ra.inflow;
 
-import java.util.UUID;
-
 import javax.jms.InvalidClientIDException;
 import javax.jms.MessageListener;
 import javax.resource.ResourceException;
@@ -22,12 +20,15 @@ import javax.resource.spi.endpoint.MessageEndpointFactory;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
+import java.util.UUID;
 
 import org.hornetq.api.core.HornetQException;
 import org.hornetq.api.core.SimpleString;
 import org.hornetq.api.core.client.ClientMessage;
 import org.hornetq.api.core.client.ClientSession.QueueQuery;
 import org.hornetq.api.core.client.ClientSessionFactory;
+import org.hornetq.api.core.client.FailoverEventListener;
+import org.hornetq.api.core.client.FailoverEventType;
 import org.hornetq.api.core.client.MessageHandler;
 import org.hornetq.core.client.impl.ClientConsumerInternal;
 import org.hornetq.core.client.impl.ClientSessionInternal;
@@ -73,6 +74,8 @@ public class HornetQMessageHandler implements MessageHandler
    private final int sessionNr;
 
    private final TransactionManager tm;
+
+   private volatile Transaction currentTX;
 
    private ClientSessionFactory cf;
 
@@ -207,7 +210,39 @@ public class HornetQMessageHandler implements MessageHandler
          endpoint = endpointFactory.createEndpoint(null);
          useXA = false;
       }
+
+      /// Would be useful to fail the current transaction during a failover..
+      /// I'm not sure we need that now, so I'm keeping this commented out
+      /// and keeping the code here in case we decide it is useful.
+      /// session.addFailoverListener(new FailoverListener());
+
       consumer.setMessageHandler(this);
+   }
+
+
+   // This is not currently used, I'm keeping this code as a reference on what to do
+   // if we decide we need to fail the current transaction
+   class FailoverListener implements FailoverEventListener
+   {
+
+      @Override
+      public void failoverEvent(FailoverEventType eventType)
+      {
+         Transaction tx = currentTX;
+
+         if (tx != null)
+         {
+            try
+            {
+               HornetQRALogger.LOGGER.debug("HornetQMessageHandler is making TX " + tx + " as rollbackOnly due to a failover event");
+               tx.setRollbackOnly();
+            }
+            catch (Throwable e)
+            {
+               HornetQRALogger.LOGGER.warn(e.getMessage(), e);
+            }
+         }
+      }
    }
 
    XAResource getXAResource()
@@ -327,22 +362,36 @@ public class HornetQMessageHandler implements MessageHandler
             message.acknowledge();
          }
 
-         ((MessageListener)endpoint).onMessage(msg);
-
-         if (!transacted)
+         if (tm != null)
          {
-            message.acknowledge();
+            this.currentTX = tm.getTransaction();
          }
 
          try
          {
-            endpoint.afterDelivery();
+
+            ((MessageListener) endpoint).onMessage(msg);
+
+            if (!transacted)
+            {
+               message.acknowledge();
+            }
+
+            try
+            {
+               endpoint.afterDelivery();
+            }
+            catch (ResourceException e)
+            {
+               HornetQRALogger.LOGGER.unableToCallAfterDelivery(e);
+               return;
+            }
          }
-         catch (ResourceException e)
+         finally
          {
-            HornetQRALogger.LOGGER.unableToCallAfterDelivery(e);
-            return;
+            currentTX = null;
          }
+
          if (useLocalTx)
          {
             session.commit();
@@ -375,16 +424,7 @@ public class HornetQMessageHandler implements MessageHandler
                }
                catch (Exception e1)
                {
-                  HornetQRALogger.LOGGER.warn("unnable to clear the transaction", e1);
-                  try
-                  {
-                     session.rollback();
-                  }
-                  catch (HornetQException e2)
-                  {
-                     HornetQRALogger.LOGGER.warn("Unable to rollback", e2);
-                     return;
-                  }
+                  HornetQRALogger.LOGGER.warn("unable to clear the transaction", e1);
                }
             }
 
@@ -416,14 +456,7 @@ public class HornetQMessageHandler implements MessageHandler
       }
       finally
       {
-         try
-         {
-            session.resetIfNeeded();
-         }
-         catch (HornetQException e)
-         {
-            HornetQRALogger.LOGGER.unableToResetSession();
-         }
+         session.resetIfNeeded();
       }
 
    }
