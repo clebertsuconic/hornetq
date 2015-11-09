@@ -214,7 +214,7 @@ public class HornetQMessageHandler implements MessageHandler
       /// Would be useful to fail the current transaction during a failover..
       /// I'm not sure we need that now, so I'm keeping this commented out
       /// and keeping the code here in case we decide it is useful.
-      /// session.addFailoverListener(new FailoverListener());
+      session.addFailoverListener(new FailoverListener());
 
       consumer.setMessageHandler(this);
    }

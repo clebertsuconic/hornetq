@@ -202,6 +202,33 @@ public class BMFailoverTest extends FailoverTestBase
       session.commit(xid, true);
    }
 
+
+   @Test
+   @BMRules
+      (
+         rules =
+            {
+               @BMRule
+                  (
+                     name = "trace clientsessionimpl commit",
+                     targetClass = "org.hornetq.core.client.impl.ClientSessionImpl",
+                     targetMethod = "start(javax.transaction.xa.Xid, int)",
+                     targetLocation = "AT EXIT",
+                     action = "org.hornetq.byteman.tests.BMFailoverTest.serverToStop.getServer().stop(true)"
+                  )
+            }
+      )
+   public void testLoop() throws Exception
+   {
+      for (int i = 0; i< 1000; i++)
+      {
+         System.out.println("#Test " + i);
+         testFailoverOnCommit2();
+         tearDown();
+         setUp();
+      }
+   }
+
    @Test
    @BMRules
       (
