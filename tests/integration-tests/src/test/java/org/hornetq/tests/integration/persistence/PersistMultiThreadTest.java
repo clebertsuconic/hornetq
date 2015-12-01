@@ -1,0 +1,493 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.hornetq.tests.integration.persistence;
+
+import java.io.File;
+import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import org.hornetq.api.config.HornetQDefaultConfiguration;
+import org.hornetq.api.core.SimpleString;
+import org.hornetq.core.paging.PagingManager;
+import org.hornetq.core.paging.PagingStore;
+import org.hornetq.core.paging.cursor.PageCursorProvider;
+import org.hornetq.core.paging.impl.Page;
+import org.hornetq.core.persistence.OperationContext;
+import org.hornetq.core.persistence.StorageManager;
+import org.hornetq.core.replication.ReplicationManager;
+import org.hornetq.core.server.HornetQServer;
+import org.hornetq.core.server.JournalType;
+import org.hornetq.core.server.RouteContextList;
+import org.hornetq.core.server.ServerMessage;
+import org.hornetq.core.server.impl.ServerMessageImpl;
+import org.hornetq.core.settings.impl.AddressFullMessagePolicy;
+import org.hornetq.core.settings.impl.AddressSettings;
+import org.hornetq.core.transaction.Transaction;
+import org.hornetq.tests.util.ServiceTestBase;
+import org.junit.Assert;
+import org.junit.Test;
+
+public class PersistMultiThreadTest extends ServiceTestBase
+{
+
+   FakePagingStore fakePagingStore = new FakePagingStore();
+
+   @Test
+   public void testMultipleWrites() throws Exception
+   {
+      deleteDirectory(new File("./target/journaltmp"));
+      HornetQServer server = createServer(true);
+      server.getConfiguration().setJournalCompactMinFiles(HornetQDefaultConfiguration.getDefaultJournalCompactMinFiles());
+      server.getConfiguration().setJournalCompactPercentage(HornetQDefaultConfiguration.getDefaultJournalCompactPercentage());
+      server.getConfiguration().setJournalDirectory("./target/journaltmp/journal");
+      server.getConfiguration().setBindingsDirectory("./target/journaltmp/bindings");
+      server.getConfiguration().setPagingDirectory("./target/journaltmp/>paging");
+      server.getConfiguration().setLargeMessagesDirectory("./target/journaltmp/largemessage");
+
+      server.getConfiguration().setJournalFileSize(10 * 1024 * 1024);
+      server.getConfiguration().setJournalMinFiles(2);
+      server.getConfiguration().setJournalType(JournalType.ASYNCIO);
+
+      server.start();
+
+      StorageManager storage = server.getStorageManager();
+
+      long msgID = storage.generateUniqueID();
+      System.out.println("msgID=" + msgID);
+
+      int NUMBER_OF_THREADS = 50;
+      int NUMBER_OF_MESSAGES = 5000;
+
+      MyThread[] threads = new MyThread[NUMBER_OF_THREADS];
+
+      final CountDownLatch alignFlag = new CountDownLatch(NUMBER_OF_THREADS);
+      final CountDownLatch startFlag = new CountDownLatch(1);
+      final CountDownLatch finishFlag = new CountDownLatch(NUMBER_OF_THREADS);
+
+      MyDeleteThread deleteThread = new MyDeleteThread("deleteThread", storage, NUMBER_OF_MESSAGES * NUMBER_OF_THREADS * 10);
+      deleteThread.start();
+
+      for (int i = 0; i < threads.length; i++)
+      {
+         threads[i] = new MyThread("writer::" + i, storage, NUMBER_OF_MESSAGES, alignFlag, startFlag, finishFlag);
+      }
+
+      for (MyThread t : threads)
+      {
+         t.start();
+      }
+
+      alignFlag.await();
+
+      long startTime = System.currentTimeMillis();
+      startFlag.countDown();
+
+      // I'm using a countDown to avoid measuring time spent on thread context from join.
+      // i.e. i want to measure as soon as the loops are done
+      finishFlag.await();
+      long endtime = System.currentTimeMillis();
+
+      System.out.println("Time:: " + (endtime - startTime));
+
+      for (MyThread t : threads)
+      {
+         t.join();
+         Assert.assertEquals(0, t.errors.get());
+      }
+
+      deleteThread.join();
+      Assert.assertEquals(0, deleteThread.errors.get());
+
+   }
+
+   LinkedBlockingDeque<Long> deletes = new LinkedBlockingDeque<Long>();
+
+   class MyThread extends Thread
+   {
+
+      final StorageManager storage;
+      final int numberOfMessages;
+      final AtomicInteger errors = new AtomicInteger(0);
+
+      final CountDownLatch align;
+      final CountDownLatch start;
+      final CountDownLatch finish;
+
+      MyThread(String name, StorageManager storage, int numberOfMessages, CountDownLatch align, CountDownLatch start, CountDownLatch finish)
+      {
+         super(name);
+         this.storage = storage;
+         this.numberOfMessages = numberOfMessages;
+         this.align = align;
+         this.start = start;
+         this.finish = finish;
+      }
+
+      public void run()
+      {
+         try
+         {
+            align.countDown();
+            start.await();
+
+            long id = storage.generateUniqueID();
+            long txID = storage.generateUniqueID();
+
+            // each thread will store a single message that will never be deleted, trying to force compacting to happen
+            storeMessage(txID, id);
+            storage.commit(txID);
+
+            OperationContext ctx = storage.getContext();
+
+            for (int i = 0; i < numberOfMessages; i++)
+            {
+
+
+               txID = storage.generateUniqueID();
+
+               long[] messageID = new long[10];
+
+               for (int msgI = 0; msgI < 10; msgI++)
+               {
+                  id = storage.generateUniqueID();
+
+                  messageID[msgI] = id;
+
+                  storeMessage(txID, id);
+               }
+
+               storage.commit(txID);
+               ctx.waitCompletion();
+
+               for (long deleteID : messageID)
+               {
+                  deletes.add(deleteID);
+               }
+            }
+         }
+         catch (Exception e)
+         {
+            e.printStackTrace();
+            errors.incrementAndGet();
+         }
+         finally
+         {
+            finish.countDown();
+         }
+
+      }
+
+      private void storeMessage(long txID, long id) throws Exception
+      {
+         ServerMessage message = new ServerMessageImpl(id, 10 * 1024);
+         message.setPagingStore(fakePagingStore);
+
+         message.getBodyBuffer().writeBytes(new byte[104]);
+         message.putStringProperty("hello", "" + id);
+
+         storage.storeMessageTransactional(txID, message);
+         storage.storeReferenceTransactional(txID, 1, id);
+
+         message.decrementRefCount();
+      }
+
+   }
+
+
+   class MyDeleteThread extends Thread
+   {
+
+      final StorageManager storage;
+      final int numberOfMessages;
+      final AtomicInteger errors = new AtomicInteger(0);
+
+      MyDeleteThread(String name, StorageManager storage, int numberOfMessages)
+      {
+         super(name);
+         this.storage = storage;
+         this.numberOfMessages = numberOfMessages;
+      }
+
+      public void run()
+      {
+         long deletesNr = 0;
+         try
+         {
+
+            for (int i = 0; i < numberOfMessages; i++)
+            {
+               if (i % 1000 == 0)
+               {
+//                        storage.getContext().waitCompletion();
+//                        deletesNr = 0;
+//                        Thread.sleep(200);
+               }
+               deletesNr++;
+               Long deleteID = deletes.poll(10, TimeUnit.MINUTES);
+               if (deleteID == null)
+               {
+                  System.err.println("Coudn't poll delete info");
+                  errors.incrementAndGet();
+                  break;
+               }
+
+               storage.storeAcknowledge(1, deleteID);
+               storage.deleteMessage(deleteID);
+            }
+         }
+         catch (Exception e)
+         {
+            e.printStackTrace(System.out);
+            errors.incrementAndGet();
+         }
+         finally
+         {
+            System.err.println("Finished the delete loop!!!! deleted " + deletesNr);
+         }
+      }
+   }
+
+   class FakePagingStore implements PagingStore
+   {
+      @Override
+      public SimpleString getAddress()
+      {
+         return null;
+      }
+
+      @Override
+      public int getNumberOfPages()
+      {
+         return 0;
+      }
+
+      @Override
+      public int getCurrentWritingPage()
+      {
+         return 0;
+      }
+
+      @Override
+      public SimpleString getStoreName()
+      {
+         return null;
+      }
+
+      @Override
+      public String getFolder()
+      {
+         return null;
+      }
+
+      @Override
+      public AddressFullMessagePolicy getAddressFullMessagePolicy()
+      {
+         return null;
+      }
+
+      @Override
+      public long getFirstPage()
+      {
+         return 0;
+      }
+
+      @Override
+      public long getPageSizeBytes()
+      {
+         return 0;
+      }
+
+      @Override
+      public long getAddressSize()
+      {
+         return 0;
+      }
+
+      @Override
+      public long getMaxSize()
+      {
+         return 0;
+      }
+
+      @Override
+      public void applySetting(AddressSettings addressSettings)
+      {
+
+      }
+
+      @Override
+      public boolean isPaging()
+      {
+         return false;
+      }
+
+      @Override
+      public void sync() throws Exception
+      {
+
+      }
+
+      @Override
+      public void ioSync() throws Exception
+      {
+
+      }
+
+      @Override
+      public boolean page(ServerMessage message, Transaction tx, RouteContextList listCtx, ReentrantReadWriteLock.ReadLock readLock) throws Exception
+      {
+         return false;
+      }
+
+      @Override
+      public Page createPage(int page) throws Exception
+      {
+         return null;
+      }
+
+      @Override
+      public boolean checkPageFileExists(int page) throws Exception
+      {
+         return false;
+      }
+
+      @Override
+      public PagingManager getPagingManager()
+      {
+         return null;
+      }
+
+      @Override
+      public PageCursorProvider getCursorProvider()
+      {
+         return null;
+      }
+
+      @Override
+      public void processReload() throws Exception
+      {
+
+      }
+
+      @Override
+      public Page depage() throws Exception
+      {
+         return null;
+      }
+
+      @Override
+      public void forceAnotherPage() throws Exception
+      {
+
+      }
+
+      @Override
+      public Page getCurrentPage()
+      {
+         return null;
+      }
+
+      @Override
+      public boolean startPaging() throws Exception
+      {
+         return false;
+      }
+
+      @Override
+      public void stopPaging() throws Exception
+      {
+
+      }
+
+      @Override
+      public void addSize(int size)
+      {
+
+      }
+
+      @Override
+      public boolean checkMemory(Runnable runnable)
+      {
+         return false;
+      }
+
+      @Override
+      public boolean lock(long timeout)
+      {
+         return false;
+      }
+
+      @Override
+      public void unlock()
+      {
+
+      }
+
+      @Override
+      public void flushExecutors()
+      {
+
+      }
+
+      @Override
+      public Collection<Integer> getCurrentIds() throws Exception
+      {
+         return null;
+      }
+
+      @Override
+      public void sendPages(ReplicationManager replicator, Collection<Integer> pageIds) throws Exception
+      {
+
+      }
+
+      @Override
+      public void disableCleanup()
+      {
+
+      }
+
+      @Override
+      public void enableCleanup()
+      {
+
+      }
+
+      @Override
+      public void start() throws Exception
+      {
+
+      }
+
+      @Override
+      public void stop() throws Exception
+      {
+
+      }
+
+      @Override
+      public boolean isStarted()
+      {
+         return false;
+      }
+   }
+}
