@@ -25,11 +25,11 @@ import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
-import javax.xml.ws.Service;
 import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.hornetq.api.config.HornetQDefaultConfiguration;
 import org.hornetq.api.jms.HornetQJMSClient;
 import org.hornetq.core.server.HornetQServer;
 import org.hornetq.core.server.JournalType;
@@ -43,28 +43,40 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
    ConnectionFactory cf;
 
+   final String DIRECTORY = "./target/journaltmp";
+
    Destination destination;
+
+   AtomicInteger received = new AtomicInteger(0);
+
+   int NUMBER_OF_THREADS = 400;
+   int NUMBER_OF_MESSAGES = 1000;
+
+   CountDownLatch receivedLatch = new CountDownLatch(NUMBER_OF_MESSAGES * NUMBER_OF_THREADS);
+
 
    @Test
    public void testMultipleWrites() throws Exception {
-      deleteDirectory(new File("./target/journaltmp"));
+      deleteDirectory(new File(DIRECTORY));
       HornetQServer server = createServer(true, true);
       server.getConfiguration().setJournalFileSize(10 * 1024 * 1024);
       server.getConfiguration().setJournalMinFiles(2);
+      server.getConfiguration().setJournalCompactMinFiles(HornetQDefaultConfiguration.getDefaultJournalCompactMinFiles());
+      server.getConfiguration().setJournalCompactPercentage(HornetQDefaultConfiguration.getDefaultJournalCompactPercentage());
       server.getConfiguration().setJournalType(JournalType.ASYNCIO);
       JMSServerManagerImpl serverManager = new JMSServerManagerImpl(server);
-      server.getConfiguration().setJournalDirectory("./target/journaltmp/journal");
-      server.getConfiguration().setBindingsDirectory("./target/journaltmp/bindings");
-      server.getConfiguration().setPagingDirectory("./target/journaltmp/>paging");
-      server.getConfiguration().setLargeMessagesDirectory("./target/journaltmp/largemessage");
+      server.getConfiguration().setJournalDirectory(DIRECTORY + "/journal");
+      server.getConfiguration().setBindingsDirectory(DIRECTORY + "/bindings");
+      server.getConfiguration().setPagingDirectory(DIRECTORY + "/paging");
+      server.getConfiguration().setLargeMessagesDirectory(DIRECTORY + "/largemessage");
       server.getConfiguration().setJournalMaxIO_AIO(200);
 
       serverManager.start();
 
-      serverManager.createQueue(true, "performanceQueue", null, true);
+      server.start();
 
-      int NUMBER_OF_THREADS = 400;
-      int NUMBER_OF_MESSAGES = 1000;
+      serverManager.createQueue(true, "performanceQueue", null, true);
+      serverManager.createQueue(true, "stationaryQueue", null, true);
 
       MyThread[] threads = new MyThread[NUMBER_OF_THREADS];
 
@@ -75,6 +87,38 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       final CountDownLatch finishFlag = new CountDownLatch(NUMBER_OF_THREADS);
 
       cf = new HornetQJMSConnectionFactory(createNettyNonHALocator());
+
+      Thread slowSending = new Thread() {
+         public void run() {
+            Connection conn = null;
+            try {
+               conn = cf.createConnection();
+               Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
+               MessageProducer producer = session.createProducer(HornetQJMSClient.createQueue("stationaryQueue"));
+
+               while (true) {
+                  System.out.println("stationed message");
+                  producer.send(session.createTextMessage("stationed"));
+
+                  Thread.sleep(1000);
+               }
+            }
+            catch (Exception e) {
+               e.printStackTrace();
+            }
+            finally {
+               try {
+                  conn.close();
+               }
+               catch (Exception ignored) {
+
+               }
+            }
+
+         }
+      };
+
+      slowSending.start();
 
       destination = HornetQJMSClient.createQueue("performanceQueue");
 
@@ -101,25 +145,27 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       finishFlag.await();
       long endtime = System.currentTimeMillis();
 
-      for (ConsumerThread t: cthreads) {
+      receivedLatch.await();
+      long endTimeConsuming = System.currentTimeMillis();
+
+      for (ConsumerThread t : cthreads) {
          t.join();
          Assert.assertEquals(0, t.errors);
       }
-
-      long endTimeConsuming = System.currentTimeMillis();
 
       for (MyThread t : threads) {
          t.join();
          Assert.assertEquals(0, t.errors.get());
       }
 
-      serverManager.stop();
+      slowSending.interrupt();
+      slowSending.join();
+
+      server.stop();
 
       System.out.println("Time on sending:: " + (endtime - startTime));
       System.out.println("Time on consuming:: " + (endTimeConsuming - startTime));
    }
-
-   AtomicInteger received = new AtomicInteger(0);
 
    class ConsumerThread extends Thread {
 
@@ -160,6 +206,7 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                }
 
                session.commit();
+               receivedLatch.countDown();
             }
             session.commit();
             connection.close();

@@ -51,17 +51,19 @@ public class PersistMultiThreadTest extends ServiceTestBase
 
    FakePagingStore fakePagingStore = new FakePagingStore();
 
+   final String DIRECTORY = "./target/journaltmp";
+
    @Test
    public void testMultipleWrites() throws Exception
    {
-      deleteDirectory(new File("./target/journaltmp"));
+      deleteDirectory(new File(DIRECTORY));
       HornetQServer server = createServer(true);
       server.getConfiguration().setJournalCompactMinFiles(HornetQDefaultConfiguration.getDefaultJournalCompactMinFiles());
       server.getConfiguration().setJournalCompactPercentage(HornetQDefaultConfiguration.getDefaultJournalCompactPercentage());
-      server.getConfiguration().setJournalDirectory("./target/journaltmp/journal");
-      server.getConfiguration().setBindingsDirectory("./target/journaltmp/bindings");
-      server.getConfiguration().setPagingDirectory("./target/journaltmp/>paging");
-      server.getConfiguration().setLargeMessagesDirectory("./target/journaltmp/largemessage");
+      server.getConfiguration().setJournalDirectory(DIRECTORY + "/journal");
+      server.getConfiguration().setBindingsDirectory(DIRECTORY + "/bindings");
+      server.getConfiguration().setPagingDirectory(DIRECTORY + "/paging");
+      server.getConfiguration().setLargeMessagesDirectory(DIRECTORY + "/largemessage");
 
       server.getConfiguration().setJournalFileSize(10 * 1024 * 1024);
       server.getConfiguration().setJournalMinFiles(2);
