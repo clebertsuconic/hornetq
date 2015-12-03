@@ -40,7 +40,8 @@ import org.hornetq.tests.util.ServiceTestBase;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class SendReceiveMultiThreadTest extends ServiceTestBase {
+public class SendReceiveMultiThreadTest extends ServiceTestBase
+{
 
    ConnectionFactory cf;
 
@@ -59,7 +60,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
 
    @Test
-   public void testMultipleWrites() throws Exception {
+   public void testMultipleWrites() throws Exception
+   {
       deleteDirectory(new File(DIRECTORY));
       HornetQServer server = createServer(true, true);
       server.getConfiguration().setJournalFileSize(10 * 1024 * 1024);
@@ -91,10 +93,13 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
       cf = new HornetQJMSConnectionFactory(createNettyNonHALocator());
 
-      Thread slowSending = new Thread() {
-         public void run() {
+      Thread slowSending = new Thread()
+      {
+         public void run()
+         {
             Connection conn = null;
-            try {
+            try
+            {
                conn = cf.createConnection();
                Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
                MessageProducer producer = session.createProducer(HornetQJMSClient.createQueue("stationaryQueue"));
@@ -102,8 +107,10 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                conn.start();
                MessageConsumer consumer = session.createConsumer(HornetQJMSClient.createQueue("stationaryQueue"));
 
-               while (true) {
-                  for (int i = 0; i < 10; i++) {
+               while (true)
+               {
+                  for (int i = 0; i < 10; i++)
+                  {
                      System.out.println("stationed message");
                      producer.send(session.createTextMessage("stationed"));
                      session.commit();
@@ -111,7 +118,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                      Thread.sleep(1000);
                   }
 
-                  for (int i = 0; i < 10; i++) {
+                  for (int i = 0; i < 10; i++)
+                  {
                      consumer.receive(5000);
                      session.commit();
                      System.out.println("Receiving stationed");
@@ -119,14 +127,18 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                   }
                }
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                e.printStackTrace();
             }
-            finally {
-               try {
+            finally
+            {
+               try
+               {
                   conn.close();
                }
-               catch (Exception ignored) {
+               catch (Exception ignored)
+               {
 
                }
             }
@@ -138,16 +150,19 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
       destination = HornetQJMSClient.createQueue("performanceQueue");
 
-      for (int i = 0; i < threads.length; i++) {
+      for (int i = 0; i < threads.length; i++)
+      {
          threads[i] = new MyThread("sender::" + i, NUMBER_OF_MESSAGES, alignFlag, startFlag, finishFlag);
          cthreads[i] = new ConsumerThread(NUMBER_OF_MESSAGES);
       }
 
-      for (ConsumerThread t : cthreads) {
+      for (ConsumerThread t : cthreads)
+      {
          t.start();
       }
 
-      for (MyThread t : threads) {
+      for (MyThread t : threads)
+      {
          t.start();
       }
 
@@ -164,12 +179,14 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       receivedLatch.await();
       long endTimeConsuming = System.currentTimeMillis();
 
-      for (ConsumerThread t : cthreads) {
+      for (ConsumerThread t : cthreads)
+      {
          t.join();
          Assert.assertEquals(0, t.errors);
       }
 
-      for (MyThread t : threads) {
+      for (MyThread t : threads)
+      {
          t.join();
          Assert.assertEquals(0, t.errors.get());
       }
@@ -184,7 +201,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       System.out.println("Number of compacting executed::" + JournalImpl.compactings);
    }
 
-   class ConsumerThread extends Thread {
+   class ConsumerThread extends Thread
+   {
 
       final int numberOfMessages;
 
@@ -193,7 +211,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
       MessageConsumer consumer;
 
-      ConsumerThread(int numberOfMessages) throws Exception {
+      ConsumerThread(int numberOfMessages) throws Exception
+      {
          super("consumerthread");
          this.numberOfMessages = numberOfMessages;
 
@@ -205,12 +224,16 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
       int errors = 0;
 
-      public void run() {
-         try {
+      public void run()
+      {
+         try
+         {
 
-            for (int i = 0; i < numberOfMessages; i++) {
+            for (int i = 0; i < numberOfMessages; i++)
+            {
                Message message = consumer.receive(50000);
-               if (message == null) {
+               if (message == null)
+               {
                   System.err.println("Could not receive message at i = " + numberOfMessages);
                   errors++;
                   break;
@@ -218,7 +241,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
                int r = received.incrementAndGet();
 
-               if (r % 1000 == 0) {
+               if (r % 1000 == 0)
+               {
                   System.out.println("Received " + r + " messages");
                }
 
@@ -232,7 +256,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
             session.commit();
             connection.close();
          }
-         catch (Exception e) {
+         catch (Exception e)
+         {
             e.printStackTrace();
             errors++;
          }
@@ -240,7 +265,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       }
    }
 
-   class MyThread extends Thread {
+   class MyThread extends Thread
+   {
 
       final int numberOfMessages;
       final AtomicInteger errors = new AtomicInteger(0);
@@ -249,7 +275,8 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
       final CountDownLatch start;
       final CountDownLatch finish;
 
-      MyThread(String name, int numberOfMessages, CountDownLatch align, CountDownLatch start, CountDownLatch finish) {
+      MyThread(String name, int numberOfMessages, CountDownLatch align, CountDownLatch start, CountDownLatch finish)
+      {
          super(name);
          this.numberOfMessages = numberOfMessages;
          this.align = align;
@@ -257,8 +284,10 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
          this.finish = finish;
       }
 
-      public void run() {
-         try {
+      public void run()
+      {
+         try
+         {
 
             Connection connection = cf.createConnection();
 
@@ -269,13 +298,15 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
             align.countDown();
             start.await();
 
-            for (int i = 0; i < numberOfMessages; i++) {
+            for (int i = 0; i < numberOfMessages; i++)
+            {
                BytesMessage msg = session.createBytesMessage();
                msg.writeBytes(new byte[1024]);
                producer.send(msg);
                session.commit();
                int s = sent.incrementAndGet();
-               if (s % 1000 == 0) {
+               if (s % 1000 == 0)
+               {
                   System.out.println("Sent " + s);
                }
             }
@@ -283,11 +314,13 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
             connection.close();
             System.out.println("Send " + numberOfMessages + " messages on thread " + Thread.currentThread().getName());
          }
-         catch (Exception e) {
+         catch (Exception e)
+         {
             e.printStackTrace();
             errors.incrementAndGet();
          }
-         finally {
+         finally
+         {
             finish.countDown();
          }
       }
