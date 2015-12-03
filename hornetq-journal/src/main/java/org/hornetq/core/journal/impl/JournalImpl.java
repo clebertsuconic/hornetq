@@ -1459,8 +1459,10 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
     * Note: only synchronized methods on journal are methods responsible for the life-cycle such as
     * stop, start records will still come as this is being executed
     */
+   public static int compactings = 0;
    protected synchronized void compact() throws Exception
    {
+      System.err.println("Compacting " + (compactings++));
       if (compactor != null)
       {
          throw new IllegalStateException("There is pending compacting operation");

@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.hornetq.api.config.HornetQDefaultConfiguration;
 import org.hornetq.api.jms.HornetQJMSClient;
+import org.hornetq.core.journal.impl.JournalImpl;
 import org.hornetq.core.server.HornetQServer;
 import org.hornetq.core.server.JournalType;
 import org.hornetq.jms.client.HornetQJMSConnectionFactory;
@@ -49,8 +50,10 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
    AtomicInteger received = new AtomicInteger(0);
 
+   AtomicInteger sent = new AtomicInteger(0);
+
    int NUMBER_OF_THREADS = 400;
-   int NUMBER_OF_MESSAGES = 1000;
+   int NUMBER_OF_MESSAGES = 5000;
 
    CountDownLatch receivedLatch = new CountDownLatch(NUMBER_OF_MESSAGES * NUMBER_OF_THREADS);
 
@@ -96,11 +99,24 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                Session session = conn.createSession(true, Session.SESSION_TRANSACTED);
                MessageProducer producer = session.createProducer(HornetQJMSClient.createQueue("stationaryQueue"));
 
-               while (true) {
-                  System.out.println("stationed message");
-                  producer.send(session.createTextMessage("stationed"));
+               conn.start();
+               MessageConsumer consumer = session.createConsumer(HornetQJMSClient.createQueue("stationaryQueue"));
 
-                  Thread.sleep(1000);
+               while (true) {
+                  for (int i = 0; i < 10; i++) {
+                     System.out.println("stationed message");
+                     producer.send(session.createTextMessage("stationed"));
+                     session.commit();
+
+                     Thread.sleep(1000);
+                  }
+
+                  for (int i = 0; i < 10; i++) {
+                     consumer.receive(5000);
+                     session.commit();
+                     System.out.println("Receiving stationed");
+                     Thread.sleep(1000);
+                  }
                }
             }
             catch (Exception e) {
@@ -165,6 +181,7 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
 
       System.out.println("Time on sending:: " + (endtime - startTime));
       System.out.println("Time on consuming:: " + (endTimeConsuming - startTime));
+      System.out.println("Number of compacting executed::" + JournalImpl.compactings);
    }
 
    class ConsumerThread extends Thread {
@@ -205,7 +222,11 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                   System.out.println("Received " + r + " messages");
                }
 
-               session.commit();
+               if (i % 50 == 0)
+               {
+                  session.commit();
+               }
+
                receivedLatch.countDown();
             }
             session.commit();
@@ -253,6 +274,10 @@ public class SendReceiveMultiThreadTest extends ServiceTestBase {
                msg.writeBytes(new byte[1024]);
                producer.send(msg);
                session.commit();
+               int s = sent.incrementAndGet();
+               if (s % 1000 == 0) {
+                  System.out.println("Sent " + s);
+               }
             }
 
             connection.close();
