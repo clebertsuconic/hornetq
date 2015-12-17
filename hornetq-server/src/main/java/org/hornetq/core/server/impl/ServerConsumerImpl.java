@@ -263,6 +263,10 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener
    {
       if (availableCredits != null && availableCredits.get() <= 0)
       {
+         HornetQServerLogger.LOGGER.warn(this + " is busy for the lack of credits. Current credits = " +
+                                             availableCredits +
+                                             " Can't receive reference " +
+                                             ref);
          if (HornetQServerLogger.LOGGER.isDebugEnabled())
          {
             HornetQServerLogger.LOGGER.debug(this + " is busy for the lack of credits. Current credits = " +

@@ -145,7 +145,7 @@ public final class PageTransactionInfoImpl implements PageTransactionInfo
          // This is to make sure deliveries that were touched before the commit arrived will be delivered
          for (Pair<PageSubscription, PagePosition> pos : lateDeliveries)
          {
-            pos.getA().redeliver(pos.getB());
+            pos.getA().lazyDeliver(pos.getB());
          }
          lateDeliveries.clear();
       }
@@ -247,7 +247,7 @@ public final class PageTransactionInfoImpl implements PageTransactionInfo
       if (committed && useRedelivery)
       {
          cursor.addPendingDelivery(cursorPos);
-         cursor.redeliver(cursorPos);
+         cursor.lazyDeliver(cursorPos);
          return true;
       }
       else if (committed)

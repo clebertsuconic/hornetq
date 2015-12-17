@@ -96,8 +96,8 @@ final class PageSubscriptionImpl implements PageSubscription
 
    private final AtomicLong deliveredCount = new AtomicLong(0);
 
-   // We only store the position for redeliveries. They will be read from the SoftCache again during delivery.
-   private final java.util.Queue<PagePosition> redeliveries = new LinkedList<PagePosition>();
+   // We only store the position for lazyDeliveries. They will be read from the SoftCache again during delivery.
+   private final java.util.Queue<PagePosition> lazyDeliveries = new LinkedList<PagePosition>();
 
    PageSubscriptionImpl(final PageCursorProvider cursorProvider,
                         final PagingStore pageStore,
@@ -556,11 +556,11 @@ final class PageSubscriptionImpl implements PageSubscription
    }
 
    @Override
-   public void redeliver(final PagePosition position)
+   public void lazyDeliver(final PagePosition position)
    {
-      synchronized (redeliveries)
+      synchronized (lazyDeliveries)
       {
-         redeliveries.add(position);
+         lazyDeliveries.add(position);
       }
 
       synchronized (consumedPages)
@@ -1215,13 +1215,7 @@ final class PageSubscriptionImpl implements PageSubscription
    {
       private PagePosition position = null;
 
-      private PagePosition lastOperation = null;
-
-      private volatile boolean isredelivery = false;
-
       private PagedReference currentDelivery = null;
-
-      private volatile PagedReference lastRedelivery = null;
 
       /**
        * next element taken on hasNext test.
@@ -1235,24 +1229,8 @@ final class PageSubscriptionImpl implements PageSubscription
 
       public void repeat()
       {
-         if (isredelivery)
-         {
-            synchronized (redeliveries)
-            {
-               cachedNext = lastRedelivery;
-            }
-         }
-         else
-         {
-            if (lastOperation == null)
-            {
-               position = null;
-            }
-            else
-            {
-               position = lastOperation;
-            }
-         }
+         new Exception("repeat method was usedd though!").printStackTrace();
+         throw new IllegalStateException("not used!!!");
       }
 
       @Override
@@ -1291,28 +1269,18 @@ final class PageSubscriptionImpl implements PageSubscription
 
             PagedReference message;
 
-            PagePosition lastPosition = position;
             PagePosition tmpPosition = position;
 
             do
             {
-               synchronized (redeliveries)
+               synchronized (lazyDeliveries)
                {
-                  PagePosition redelivery = redeliveries.poll();
+                  PagePosition redelivery = lazyDeliveries.poll();
 
                   if (redelivery != null)
                   {
-                     // There's a redelivery pending, we will get it out of that pool instead
-                     isredelivery = true;
                      PagedReference redeliveredMsg = getReference(redelivery);
-                     lastRedelivery = redeliveredMsg;
-
                      return redeliveredMsg;
-                  }
-                  else
-                  {
-                     lastRedelivery = null;
-                     isredelivery = false;
                   }
 
                   message = internalGetNext(tmpPosition);
@@ -1401,11 +1369,6 @@ final class PageSubscriptionImpl implements PageSubscription
                }
             }
             while (message != null && !match);
-
-            if (message != null)
-            {
-               lastOperation = lastPosition;
-            }
 
             return message;
          }

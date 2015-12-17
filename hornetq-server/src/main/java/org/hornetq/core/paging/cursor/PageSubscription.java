@@ -123,7 +123,7 @@ public interface PageSubscription
     *
     * @param position
     */
-   void redeliver(PagePosition position);
+   void lazyDeliver(PagePosition position);
 
    void printDebug();
 
