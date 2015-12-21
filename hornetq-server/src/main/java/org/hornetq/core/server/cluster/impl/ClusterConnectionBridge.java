@@ -283,13 +283,13 @@ public class ClusterConnectionBridge extends BridgeImpl
                                                 flowRecord.getAddress() +
                                                 "%')");
 
-         session.createTemporaryQueue(managementNotificationAddress, notifQueueName, filter);
+         consumerSession.createTemporaryQueue(managementNotificationAddress, notifQueueName, filter);
 
-         notifConsumer = session.createConsumer(notifQueueName);
+         notifConsumer = consumerSession.createConsumer(notifQueueName);
 
          notifConsumer.setMessageHandler(flowRecord);
 
-         session.start();
+         consumerSession.start();
 
          ClientMessage message = session.createMessage(false);
          if (HornetQServerLogger.LOGGER.isTraceEnabled())
@@ -302,7 +302,7 @@ public class ClusterConnectionBridge extends BridgeImpl
                                                  notifQueueName.toString(),
                                                  flowRecord.getAddress());
 
-         ClientProducer prod = session.createProducer(managementAddress);
+         ClientProducer prod = consumerSession.createProducer(managementAddress);
 
          if (HornetQServerLogger.LOGGER.isDebugEnabled())
          {
@@ -310,6 +310,8 @@ public class ClusterConnectionBridge extends BridgeImpl
          }
 
          prod.send(message);
+
+         prod.close();
       }
    }
 

@@ -15,9 +15,10 @@ package org.hornetq.core.server.cluster.impl;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ListIterator;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -98,7 +99,8 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
 
    private final SimpleString forwardingAddress;
 
-   private final java.util.Queue<MessageReference> refs = new ConcurrentLinkedQueue<MessageReference>();
+
+   private final java.util.Map<Message, MessageReference> refs = new LinkedHashMap<Message, MessageReference>();
 
    private final Transformer transformer;
 
@@ -126,6 +128,10 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
    protected ScheduledFuture<?> futureScheduledReconnection;
 
    protected volatile ClientSessionInternal session;
+
+   // We keep any consumers (notifications) through a different session
+   // this is to avoid messing up with ordering on the confirmation queues
+   protected volatile ClientSessionInternal consumerSession;
 
    protected String targetNodeID;
 
@@ -282,9 +288,9 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
    @Override
    public List<MessageReference> getDeliveringMessages()
    {
-      synchronized (this)
+      synchronized (refs)
       {
-         return new ArrayList<MessageReference>(refs);
+         return new ArrayList<MessageReference>(refs.values());
       }
    }
 
@@ -331,40 +337,42 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
 
    private void cancelRefs()
    {
-      MessageReference ref;
-
       LinkedList<MessageReference> list = new LinkedList<MessageReference>();
 
-      while ((ref = refs.poll()) != null)
+      synchronized (refs)
       {
-         if (isTrace)
-         {
-            HornetQServerLogger.LOGGER.trace("Cancelling reference " + ref + " on bridge " + this);
-         }
-         list.addFirst(ref);
+         list.addAll(refs.values());
+         refs.clear();
       }
 
       if (isTrace && list.isEmpty())
       {
          HornetQServerLogger.LOGGER.trace("didn't have any references to cancel on bridge " + this);
+         return;
       }
 
-      Queue refqueue = null;
+
+      ListIterator<MessageReference> listIterator = list.listIterator(list.size());
+
+
+      Queue refqueue;
 
       long timeBase = System.currentTimeMillis();
 
-      for (MessageReference ref2 : list)
+      while (listIterator.hasPrevious())
       {
-         refqueue = ref2.getQueue();
+         MessageReference ref = listIterator.previous();
+
+         refqueue = ref.getQueue();
 
          try
          {
-            refqueue.cancel(ref2, timeBase);
+            refqueue.cancel(ref, timeBase);
          }
          catch (Exception e)
          {
             // There isn't much we can do besides log an error
-            HornetQServerLogger.LOGGER.errorCancellingRefOnBridge(e, ref2);
+            HornetQServerLogger.LOGGER.errorCancellingRefOnBridge(e, ref);
          }
       }
    }
@@ -401,6 +409,18 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
                   HornetQServerLogger.LOGGER.debug(dontcare.getMessage(), dontcare);
                }
                session = null;
+            }
+            if (consumerSession != null)
+            {
+               try
+               {
+                  consumerSession.cleanUp(false);
+               }
+               catch (Exception dontcare)
+               {
+                  HornetQServerLogger.LOGGER.debug(dontcare.getMessage(), dontcare);
+               }
+               consumerSession = null;
             }
          }
       });
@@ -540,11 +560,21 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
 
    public void sendAcknowledged(final Message message)
    {
+      if (HornetQServerLogger.LOGGER.isTraceEnabled())
+      {
+         HornetQServerLogger.LOGGER.trace("BridgeImpl::sendAcknowledged received confirmation for message " + message);
+      }
       if (active)
       {
          try
          {
-            final MessageReference ref = refs.poll();
+
+            final MessageReference ref;
+
+            synchronized (refs)
+            {
+               ref = refs.remove(message);
+            }
 
             if (ref != null)
             {
@@ -630,7 +660,10 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
 
          ref.handled();
 
-         refs.add(ref);
+         synchronized (refs)
+         {
+            refs.put(ref.getMessage(), ref);
+         }
 
          final ServerMessage message = beforeForward(ref.getMessage());
 
@@ -782,9 +815,12 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
       {
          HornetQServerLogger.LOGGER.bridgeUnableToSendMessage(e, ref);
 
-         // We remove this reference as we are returning busy which means the reference will never leave the Queue.
-         // because of this we have to remove the reference here
-         refs.remove(ref);
+         synchronized (refs)
+         {
+            // We remove this reference as we are returning busy which means the reference will never leave the Queue.
+            // because of this we have to remove the reference here
+            refs.remove(message);
+         }
 
          connectionFailed(e, false);
 
@@ -955,6 +991,7 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
                }
                // Session is pre-acknowledge
                session = (ClientSessionInternal)csf.createSession(user, password, false, true, true, true, 1);
+               consumerSession = (ClientSessionInternal)csf.createSession(user, password, false, true, true, true, 1);
             }
 
             if (forwardingAddress != null)
