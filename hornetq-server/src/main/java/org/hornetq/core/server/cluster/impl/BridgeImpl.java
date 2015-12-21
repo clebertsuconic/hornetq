@@ -129,10 +129,6 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
 
    protected volatile ClientSessionInternal session;
 
-   // We keep any consumers (notifications) through a different session
-   // this is to avoid messing up with ordering on the confirmation queues
-   protected volatile ClientSessionInternal consumerSession;
-
    protected String targetNodeID;
 
    protected TopologyMember targetNode;
@@ -409,18 +405,6 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
                   HornetQServerLogger.LOGGER.debug(dontcare.getMessage(), dontcare);
                }
                session = null;
-            }
-            if (consumerSession != null)
-            {
-               try
-               {
-                  consumerSession.cleanUp(false);
-               }
-               catch (Exception dontcare)
-               {
-                  HornetQServerLogger.LOGGER.debug(dontcare.getMessage(), dontcare);
-               }
-               consumerSession = null;
             }
          }
       });
@@ -991,7 +975,6 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
                }
                // Session is pre-acknowledge
                session = (ClientSessionInternal)csf.createSession(user, password, false, true, true, true, 1);
-               consumerSession = (ClientSessionInternal)csf.createSession(user, password, false, true, true, true, 1);
             }
 
             if (forwardingAddress != null)
