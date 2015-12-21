@@ -148,8 +148,18 @@ public class DuplicateIDCacheImpl implements DuplicateIDCache
    {
       return cache.get(new ByteArrayHolder(duplID)) != null;
    }
+   public void addToCache(final byte[] duplID) throws Exception
+   {
+      addToCache(duplID, null, false);
+   }
 
-   public synchronized void addToCache(final byte[] duplID, final Transaction tx) throws Exception
+
+   public void addToCache(final byte[] duplID, final Transaction tx) throws Exception
+   {
+      addToCache(duplID, tx, false);
+   }
+
+   public synchronized void addToCache(final byte[] duplID, final Transaction tx, boolean instantAdd) throws Exception
    {
       long recordID = -1;
 
@@ -173,6 +183,10 @@ public class DuplicateIDCacheImpl implements DuplicateIDCache
             tx.setContainsPersistent();
          }
 
+         if (instantAdd)
+         {
+            addToCacheInMemory(duplID, recordID);
+         }
          // For a tx, it's important that the entry is not added to the cache until commit
          // since if the client fails then resends them tx we don't want it to get rejected
          tx.addOperation(new AddDuplicateIDOperation(duplID, recordID));

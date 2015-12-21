@@ -1267,8 +1267,10 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             }
          }
 
-//         cacheBridge.addToCache(bridgeDupBytes, context.getTransaction());
-         cacheBridge.addToCache(bridgeDupBytes, null);
+         // on the bridge case there is a case where the bridge reconnects
+         // and the send hasn't finished yet (think of CPU outages).
+         // for that reason we add the cache right away
+         cacheBridge.addToCache(bridgeDupBytes, context.getTransaction(), true);
 
          message.removeProperty(MessageImpl.HDR_BRIDGE_DUPLICATE_ID);
 
@@ -1316,7 +1318,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                startedTX.set(true);
             }
 
-            cache.addToCache(duplicateIDBytes, context.getTransaction());
+            cache.addToCache(duplicateIDBytes, context.getTransaction(), false);
          }
       }
 
