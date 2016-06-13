@@ -1,0 +1,227 @@
+commit 77978723c74bb877c17febc64e9b2532e892287e
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Wed Jun 1 15:38:07 2016 -0400
+
+    ARTEMIS-552 Replication target being finished can lead to instability on live
+    
+    https://issues.apache.org/jira/browse/ARTEMIS-552
+    
+    (cherry picked from commit 2e6586548b3a0d69f1ce2079a2da243af16a28c6)
+    
+    https://issues.jboss.org/browse/JBEAP-4742
+
+
+commit c413440212c253964748176aae4b548ff12ff9a0
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Tue May 31 18:14:38 2016 -0400
+
+    Traces on producer.send
+    
+    (cherry picked from commit 242730a278033362cf0e5fcaa74603ae5790f1ee)
+    
+    done to investigate https://issues.jboss.org/browse/JBEAP-4742
+
+
+
+
+maybe:
+commit 03d4444925c8e964ca51d1dc98d83ab34575824f
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Wed May 18 21:43:21 2016 -0400
+
+    ARTEMIS-525 Adding test on interrupted exception and regular receivers
+    
+    (cherry picked from commit 37bc511f969fb5c2389e6dd7041c6a7217e3c5d1)
+
+
+commit 461588780de4679ca7d116837cc5dc13ee444539
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Wed May 18 17:00:17 2016 -0400
+
+    ARTEMIS-524 Paging could lose data eventually after crashes
+    
+    https://issues.apache.org/jira/browse/ARTEMIS-524
+    
+    I am keeping all the debug ad tracing I added during the debug of this issue,
+    for that reason this commit may look longer than expected
+    
+    The fix will be highlited by the tests added on org.apache.activemq.artemis.tests.integration.client.PagingTest
+    
+    (cherry picked from commit 3e2adf123b96c3dfade3d1584ea0ddf65a876941)
+    
+    ------
+    
+    ARTEMIS-525 Interrupted Thread should throw JMS Exceptions over the JMS layer
+    
+    (cherry picked from a75bd7630af24b6b48e5cfa23fa5c2a4aacda9cc)
+    
+    -----
+    
+commit 109ef60275648be13c9e82bb9411aa073e5216bb
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Wed Apr 20 09:51:44 2016 -0400
+
+    ARTEMIS-490 Fixing new largeMessage copy
+    
+    (cherry picked from commit b89faae45811454394233bf683d2ce17d373034a)
+    
+    https://issues.jboss.org/browse/JBEAP-4225
+
+
+
+commit 99f0aacebcb735a4b45178feb21a5e0c098f77d8
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Mon Apr 18 17:46:55 2016 -0400
+
+    ARTEMIS-490 Adding test with LargeMessage.copy through replication
+    
+    I'm keeping a commit just for the test so it would be easier to replicate the bug.
+    
+    (cherry picked from commit dcf651376f1e94f21c818c66624fcdf439a6e760)
+    
+    https://issues.jboss.org/browse/JBEAP-4225
+
+
+commit b17271cc482be7843f8f8542ee61c607ba30930d
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Mon Apr 18 17:55:49 2016 -0400
+
+    ARTEMIS-490 Fixing LargeMessage copy through replication
+    
+    this will fix cases like DLQ and Diverts
+    
+    (cherry picked from commit e81fa5c359f8c6e9cd424cd28b2d7ffcb32de922)
+
+
+
+
+maybe
+commit 5457d374068170bf31e8b378ba43fd4e3c65a6f2
+Author: Martyn Taylor <mtaylor@redhat.com>
+Date:   Fri Apr 1 23:13:04 2016 +0100
+
+    ARTEMIS-465 Create LM on write packet in ReplicationEndpoint
+    
+    If a LM write packet is received from the live assume that the large
+    message exists and create a local reference.
+    
+    Old behavour would reject the packet which could lead to loss of data on
+    failover see JIRA.
+    
+    https://issues.jboss.org/browse/JBEAP-2946 & https://issues.jboss.org/browse/JBEAP-3998
+    
+    (cherry picked from commit e2c6d0b7f775da430501aa7230fc25d5dd2f62df)
+
+
+
+
+I don't know if this applies:
+commit 9c06d00c549e8fcb641bbcba039295fddaba5211
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Thu Apr 14 17:51:18 2016 -0400
+
+    ARTEMIS-474 Clustering fails on certain topologies
+    
+    Communication between nodes will fail under certain topologies
+    JGroups has something called JForkChannel that could be used on container systems.
+    And be injected into Artemis.
+    For some reason that channel cannot be reused for more than one channel per VM.
+    And it cannot ever be closed.
+    
+    I am keeping the trace logs I used to debug this issue in case anything similar to this happens again.
+    
+    https://issues.jboss.org/browse/JBEAP-2946 & https://issues.jboss.org/browse/JBEAP-3998
+    
+    (cherry picked from commit 630db2d69c1de2a497169cb601390b55cd1cdd19)
+    (cherry picked from commit ec73961f72fc687b2d63987268b335ee5da52874)
+
+
+
+commit dfb905336a24cb3a7af2c19c29d49970b8a81f65
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Thu Apr 14 13:24:46 2016 -0400
+
+    ARTEMIS-484 Large Message Loss on Initial replication
+    
+    https://issues.apache.org/jira/browse/ARTEMIS-484
+    
+    The File copy after the initial synchronization on large messages was broken.
+    On this commit we fix how the buffer is cleaned up before each read since
+    a previously unfinished body read would make the buffer dirty.
+    
+    I'm keeping also lots of Traces I have added to debug this issue, so they will
+    be useful if anything like this happens again.
+    
+    https://issues.jboss.org/browse/JBEAP-2946 & https://issues.jboss.org/browse/JBEAP-3998
+    
+    (cherry picked from d6c7e30594cd6620ad05cbbd247421e07793ee77)
+
+
+
+
+commit c4ed8bc967ae48815477910df65ff90df5bc86f3
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Thu Apr 7 15:53:52 2016 -0400
+
+    ARTEMIS-474 fixing page.close() deadlock with replica
+    
+    https://issues.jboss.org/browse/JBEAP-2946 & https://issues.jboss.org/browse/JBEAP-3998
+    
+    (cherry picked from commit 2e894554ca8d0e518f254b22ff3f4cccc9a59475)
+
+
+
+
+
+commit 48022240ac2009a1cd8bf60a0b3a73edd1729a39
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Mon Apr 4 18:36:36 2016 -0400
+
+    ARTEMIS-465 Testing possible races through large message replication
+    
+    https://issues.jboss.org/browse/JBEAP-2946 & https://issues.jboss.org/browse/JBEAP-3998
+    
+    (cherry picked from commit 7da22ff10531511918523b0fb4be69eeddaaf515)
+    (cherry picked from commit 86a81d315d9794e491221a258561abcddae38ffb)
+
+
+
+hmmmmm
+commit f70a226d598b624401008447d2db0c6b43371f78
+Author: Clebert Suconic <clebertsuconic@apache.org>
+Date:   Tue Apr 19 18:50:56 2016 -0400
+
+    ARTEMIS-482 testsuite fixes:
+    
+    The new Executor operationr needs to be synchronized as a few tests are failing because of this
+    another fix on the test base class
+    
+    (cherry picked from commit bd3d0492fd03978f14bb77427d02640af4a31dbd)
+    
+    https://issues.jboss.org/browse/JBEAP-4203
+    
+    ** there is a class change but this mainly affects the testsuite as nothing will clear the InVMConnector's executor
+
+ 
+
+
+
+commit 992a044f6ff2e39eb00818a380f4c6f52ebc747b
+Author: Martyn Taylor <mtaylor@redhat.com>
+Date:   Wed Mar 23 15:33:49 2016 +0000
+
+    ARTEMIS-456 Synchronize sendReplicatePacket method
+    
+    There is a potential deadlock scenario if 2 threads try
+    sendReplicatePacket.  Thread 1 registers Netty callback which will
+    invoke readyForWrites() method, which locks the callback list and waits
+    on the replicationLock.  Thread 2 enters sendReplicatePacket and gets
+    the replicationLock and is blocked on the callback list lock.  This fix
+    ensures the sendReplicatePacket blocks on the ReplicationManager meaning
+    no interleaving of the Netty callback thread and the wait on lock can
+    happen.
+    
+    Closes: https://issues.jboss.org/browse/JBEAP-3900
+    
+    (cherry picked from commit 768b5db9581f5637e59e3c7dc30192b9c369d4bf)
+
