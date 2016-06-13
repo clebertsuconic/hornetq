@@ -357,7 +357,8 @@ public final class ReplicationManager implements HornetQComponent
       return sendReplicatePacket(packet, true);
    }
 
-   private OperationContext sendReplicatePacket(final Packet packet, boolean lineUp)
+   // Back-porting from artemis commit 992a044f6ff2e39eb00818a380f4c6f52ebc747b
+   private synchronized OperationContext sendReplicatePacket(final Packet packet, boolean lineUp)
    {
       if (!enabled)
          return null;
