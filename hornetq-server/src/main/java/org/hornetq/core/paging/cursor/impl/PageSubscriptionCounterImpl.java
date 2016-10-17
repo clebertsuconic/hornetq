@@ -57,7 +57,7 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
 
    private final Executor executor;
 
-   private final AtomicLong value = new AtomicLong(0);
+   private ValueCounter value = new ValueCounter(0);
 
    private final AtomicLong pendingValue = new AtomicLong(0);
 
@@ -94,6 +94,12 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
    }
 
    @Override
+   public long getValueAdded()
+   {
+      return value.getValueAdded() + pendingValue.get();
+   }
+
+   @Override
    public long getValue()
    {
       return value.get() + pendingValue.get();
@@ -105,7 +111,6 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
     *
     * @param page
     * @param increment
-    * @param context
     * @throws Exception
     */
    @Override
@@ -306,7 +311,7 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
 
          for (Pair<Long, Integer> incElement : loadList)
          {
-            value.addAndGet(incElement.getB());
+            value.addAndGet(incElement.getB(), true);
             incrementRecords.add(incElement.getA());
          }
          loadList.clear();
@@ -316,8 +321,7 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
 
    public synchronized void addInc(long id, int variance)
    {
-      value.addAndGet(variance);
-
+      value.addAndGet(variance, false);
       if (id >= 0)
       {
          incrementRecords.add(id);
@@ -399,7 +403,6 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
 
    private static class ItemOper
    {
-
       public ItemOper(PageSubscriptionCounterImpl counter, long id, int add)
       {
          this.counter = counter;
@@ -425,6 +428,43 @@ public class PageSubscriptionCounterImpl implements PageSubscriptionCounter
          {
             oper.counter.incrementProcessed(oper.id, oper.ammount);
          }
+      }
+   }
+
+   private class ValueCounter
+   {
+      private AtomicLong value;
+      private long valueAdded;
+
+      public ValueCounter(long initValue)
+      {
+         this.value = new AtomicLong(initValue);
+         this.valueAdded = initValue;
+      }
+
+      public long get()
+      {
+         return value.get();
+      }
+
+      public void set(long newValue)
+      {
+         value.set(newValue);
+         valueAdded = newValue;
+      }
+
+      public void addAndGet(int var, boolean reload)
+      {
+         value.addAndGet(var);
+         if (var > 0 || reload)
+         {
+            valueAdded += var;
+         }
+      }
+
+      public long getValueAdded()
+      {
+         return valueAdded;
       }
    }
 }

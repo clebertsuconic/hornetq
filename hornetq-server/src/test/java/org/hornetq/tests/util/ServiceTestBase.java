@@ -491,7 +491,17 @@ public abstract class ServiceTestBase extends UnitTestCase
                                               final int maxAddressSize,
                                               final Map<String, AddressSettings> settings)
    {
-      return createServer(realFiles, configuration, pageSize, maxAddressSize, AddressFullMessagePolicy.PAGE, settings);
+      return createServer(realFiles, configuration, pageSize, maxAddressSize, settings, (ServerCreationContext) null);
+   }
+
+   protected final HornetQServer createServer(final boolean realFiles,
+                                              final Configuration configuration,
+                                              final int pageSize,
+                                              final int maxAddressSize,
+                                              final Map<String, AddressSettings> settings,
+                                              final ServerCreationContext context)
+   {
+      return createServer(realFiles, configuration, pageSize, maxAddressSize, AddressFullMessagePolicy.PAGE, settings, context);
    }
 
    protected final HornetQServer createServer(final boolean realFiles,
@@ -501,7 +511,31 @@ public abstract class ServiceTestBase extends UnitTestCase
                                               final AddressFullMessagePolicy fullPolicy,
                                               final Map<String, AddressSettings> settings)
    {
-      HornetQServer server = addServer(HornetQServers.newHornetQServer(configuration, realFiles));
+      return createServer(realFiles, configuration, pageSize, maxAddressSize, fullPolicy, settings, null);
+   }
+
+   protected final HornetQServer createServer(final boolean realFiles,
+                                              final Configuration configuration,
+                                              final int pageSize,
+                                              final int maxAddressSize,
+                                              final AddressFullMessagePolicy fullPolicy,
+                                              final Map<String, AddressSettings> settings,
+                                              ServerCreationContext context)
+   {
+      HornetQSecurityManager securityManager = new HornetQSecurityManagerImpl();
+
+      MBeanServer mbeanServer = null;
+      if (context != null)
+      {
+         context.mbeanServer = ManagementFactory.getPlatformMBeanServer();
+         mbeanServer = context.mbeanServer;
+      }
+
+      HornetQServer server = addServer(HornetQServers.newHornetQServer(configuration,
+                                                             mbeanServer,
+                                                             securityManager,
+                                                             realFiles));
+
       if (settings != null)
       {
          for (Map.Entry<String, AddressSettings> setting : settings.entrySet())
@@ -565,23 +599,43 @@ public abstract class ServiceTestBase extends UnitTestCase
 
    protected final HornetQServer createServer(final boolean realFiles) throws Exception
    {
-      return createServer(realFiles, false);
+      return createServer(realFiles, false, null);
+   }
+
+   protected final HornetQServer createServer(final boolean realFiles, ServerCreationContext context) throws Exception
+   {
+      return createServer(realFiles, false, context);
    }
 
    protected final HornetQServer createServer(final boolean realFiles, final boolean netty) throws Exception
    {
-      return createServer(realFiles, createDefaultConfig(netty), -1, -1, new HashMap<String, AddressSettings>());
+      return createServer(realFiles, netty, null);
+   }
+
+   protected final HornetQServer createServer(final boolean realFiles, final boolean netty, ServerCreationContext context) throws Exception
+   {
+      return createServer(realFiles, createDefaultConfig(netty), -1, -1, new HashMap<String, AddressSettings>(), context);
    }
 
    protected HornetQServer createServer(final boolean realFiles, final Configuration configuration)
    {
-      return createServer(realFiles, configuration, -1, -1, new HashMap<String, AddressSettings>());
+      return createServer(realFiles, configuration, (ServerCreationContext) null);
+   }
+
+   protected HornetQServer createServer(final boolean realFiles, final Configuration configuration, ServerCreationContext context)
+   {
+      return createServer(realFiles, configuration, -1, -1, new HashMap<String, AddressSettings>(), context);
    }
 
    protected final HornetQServer createServer(final Configuration configuration)
    {
+      return createServer(configuration, null);
+   }
+
+   protected final HornetQServer createServer(final Configuration configuration, ServerCreationContext context)
+   {
       return createServer(configuration.isPersistenceEnabled(), configuration, -1, -1,
-                          new HashMap<String, AddressSettings>());
+                          new HashMap<String, AddressSettings>(), context);
    }
 
    protected HornetQServer createInVMFailoverServer(final boolean realFiles,
@@ -589,13 +643,21 @@ public abstract class ServiceTestBase extends UnitTestCase
                                                     final NodeManager nodeManager,
                                                     final int id)
    {
+      return createInVMFailoverServer(realFiles, configuration, nodeManager, id, null);
+   }
+
+   protected HornetQServer createInVMFailoverServer(final boolean realFiles,
+                                                    final Configuration configuration,
+                                                    final NodeManager nodeManager,
+                                                    final int id, ServerCreationContext context)
+   {
       return createInVMFailoverServer(realFiles,
                                       configuration,
                                       -1,
                                       -1,
                                       new HashMap<String, AddressSettings>(),
                                       nodeManager,
-                                      id);
+                                      id, context);
    }
 
    protected HornetQServer createInVMFailoverServer(final boolean realFiles,
@@ -606,11 +668,27 @@ public abstract class ServiceTestBase extends UnitTestCase
                                                     NodeManager nodeManager,
                                                     final int id)
    {
+      return createInVMFailoverServer(realFiles, configuration, pageSize, maxAddressSize, settings, nodeManager, id, null);
+   }
+
+   protected HornetQServer createInVMFailoverServer(final boolean realFiles,
+                                                    final Configuration configuration,
+                                                    final int pageSize,
+                                                    final int maxAddressSize,
+                                                    final Map<String, AddressSettings> settings,
+                                                    NodeManager nodeManager,
+                                                    final int id, ServerCreationContext context)
+   {
       HornetQServer server;
       HornetQSecurityManager securityManager = new HornetQSecurityManagerImpl();
       configuration.setPersistenceEnabled(realFiles);
+      MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+      if (context != null)
+      {
+         context.mbeanServer = mBeanServer;
+      }
       server = new InVMNodeManagerServer(configuration,
-                                         ManagementFactory.getPlatformMBeanServer(),
+                                         mBeanServer,
                                          securityManager,
                                          nodeManager);
 
@@ -684,7 +762,7 @@ public abstract class ServiceTestBase extends UnitTestCase
    {
       String acceptor = isNetty ? NETTY_ACCEPTOR_FACTORY : INVM_ACCEPTOR_FACTORY;
       return createServer(realFiles, createDefaultConfig(index, params, acceptor), -1, -1,
-                          new HashMap<String, AddressSettings>());
+                          new HashMap<String, AddressSettings>(), (ServerCreationContext) null);
    }
 
    protected HornetQServer createClusteredServerWithParams(final boolean isNetty,
@@ -697,7 +775,7 @@ public abstract class ServiceTestBase extends UnitTestCase
       return createServer(realFiles, createDefaultConfig(index, params, (isNetty ? NETTY_ACCEPTOR_FACTORY : INVM_ACCEPTOR_FACTORY)),
                           pageSize,
                           maxAddressSize,
-                          new HashMap<String, AddressSettings>());
+                          new HashMap<String, AddressSettings>(), (ServerCreationContext) null);
    }
 
    protected ServerLocator createFactory(final boolean isNetty) throws Exception

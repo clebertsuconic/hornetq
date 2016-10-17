@@ -66,6 +66,7 @@ import org.hornetq.core.server.group.impl.GroupingHandlerConfiguration;
 import org.hornetq.core.server.impl.InVMNodeManager;
 import org.hornetq.core.server.impl.QuorumManager;
 import org.hornetq.tests.integration.IntegrationTestLogger;
+import org.hornetq.tests.util.ServerCreationContext;
 import org.hornetq.tests.util.ServerLocatorSettingsCallback;
 import org.hornetq.tests.util.ServiceTestBase;
 import org.hornetq.tests.util.UnitTestCase;
@@ -125,6 +126,8 @@ public abstract class ClusterTestBase extends ServiceTestBase
 
    protected ServerLocator[] locators;
 
+   protected ServerCreationContext[] contexts;
+
    @Override
    @Before
    public void setUp() throws Exception
@@ -152,6 +155,11 @@ public abstract class ClusterTestBase extends ServiceTestBase
 
       locators = new ServerLocator[ClusterTestBase.MAX_SERVERS];
 
+      contexts = new ServerCreationContext[MAX_SERVERS];
+      for (int i = 0; i < MAX_SERVERS; i++)
+      {
+         contexts[i] = new ServerCreationContext();
+      }
    }
 
    /**
@@ -179,6 +187,8 @@ public abstract class ClusterTestBase extends ServiceTestBase
       consumers = new ConsumerHolder[ClusterTestBase.MAX_CONSUMERS];
 
       nodeManagers = null;
+
+      contexts = null;
 
       super.tearDown();
 
@@ -1667,22 +1677,22 @@ public abstract class ClusterTestBase extends ServiceTestBase
       {
          if (sharedStorage)
          {
-            server = createInVMFailoverServer(true, configuration, nodeManagers[node], node);
+            server = createInVMFailoverServer(true, configuration, nodeManagers[node], node, contexts[node]);
          }
          else
          {
-            server = createServer(configuration);
+            server = createServer(configuration, contexts[node]);
          }
       }
       else
       {
          if (sharedStorage)
          {
-            server = createInVMFailoverServer(false, configuration, nodeManagers[node], node);
+            server = createInVMFailoverServer(false, configuration, nodeManagers[node], node, contexts[node]);
          }
          else
          {
-            server = createServer(false, configuration);
+            server = createServer(false, configuration, contexts[node]);
          }
       }
 
@@ -1736,7 +1746,7 @@ public abstract class ClusterTestBase extends ServiceTestBase
 
       if (sharedStorage)
       {
-         server = createInVMFailoverServer(true, configuration, nodeManagers[liveNode], liveNode);
+         server = createInVMFailoverServer(true, configuration, nodeManagers[liveNode], liveNode, contexts[node]);
       }
       else
       {
@@ -1796,7 +1806,7 @@ public abstract class ClusterTestBase extends ServiceTestBase
       {
          if (sharedStorage)
          {
-            server = createInVMFailoverServer(true, configuration, nodeManagers[node], node);
+            server = createInVMFailoverServer(true, configuration, nodeManagers[node], node, contexts[node]);
          }
          else
          {
@@ -1808,7 +1818,7 @@ public abstract class ClusterTestBase extends ServiceTestBase
       {
          if (sharedStorage)
          {
-            server = createInVMFailoverServer(false, configuration, nodeManagers[node], node);
+            server = createInVMFailoverServer(false, configuration, nodeManagers[node], node, contexts[node]);
          }
          else
          {
@@ -1868,7 +1878,7 @@ public abstract class ClusterTestBase extends ServiceTestBase
       HornetQServer server;
       if (sharedStorage)
       {
-         server = createInVMFailoverServer(fileStorage, configuration, nodeManagers[liveNode], liveNode);
+         server = createInVMFailoverServer(fileStorage, configuration, nodeManagers[liveNode], liveNode, contexts[node]);
       }
       else
       {
@@ -2092,7 +2102,7 @@ public abstract class ClusterTestBase extends ServiceTestBase
 
    /**
     * XXX waitForPrevious actually masks what can be considered a bug: that even controlling for
-    * {@link HornetQServer#waitForInitialization} we still need to wait between starting a shared
+    * {@link HornetQServer#waitForActivation} we still need to wait between starting a shared
     * store backup and its live.
     */
    protected void startServers(final int... nodes) throws Exception
