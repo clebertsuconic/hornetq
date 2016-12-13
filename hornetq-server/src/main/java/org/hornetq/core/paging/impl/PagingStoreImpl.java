@@ -804,6 +804,10 @@ public class PagingStoreImpl implements PagingStore
             }
          }
 
+         if (addressSize < 0) {
+            new Exception("oops").printStackTrace();
+         }
+
          return;
       }
       else if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL)
