@@ -25,7 +25,8 @@ public class Main
    private static final String PRINT_PAGES = "print-pages";
    private static final String DATA_TOOL = "data-tool";
    private static final String TRANSFER = "transfer-queue";
-   private static final String OPTIONS = " [" + IMPORT + "|" + EXPORT + "|" + PRINT_DATA + "|" + PRINT_PAGES + "|" + DATA_TOOL + "|" + TRANSFER + "]";
+   private static final String EXPORT_QUEUES = "export-queues";
+   private static final String OPTIONS = " [" + IMPORT + "|" + EXPORT + "|" + PRINT_DATA + "|" + PRINT_PAGES + "|" + DATA_TOOL + "|" + TRANSFER + "|" + EXPORT_QUEUES + "]";
 
    public static void main(String[] arg) throws Exception
    {
@@ -46,6 +47,15 @@ public class Main
          DataTool dataTool = new DataTool();
          dataTool.process(arg);
       }
+      else if (EXPORT_QUEUES.equals(arg[0]))
+      {
+         if (arg.length != 2)
+         {
+            System.out.println(USAGE + " " + EXPORT_QUEUES + " <bindings-directory>");
+            System.exit(-1);
+         }
+         ExportQueues.exportQueues(arg[1]);
+      }
       else if (EXPORT.equals(arg[0]))
       {
          if (arg.length != 5)
@@ -55,7 +65,7 @@ public class Main
          }
          else
          {
-            String[] mainArgs = new String[] {arg[1], arg[2], arg[3], arg[4]};
+            String[] mainArgs = new String[]{arg[1], arg[2], arg[3], arg[4]};
             XmlDataExporter.main(mainArgs);
          }
       }
@@ -68,7 +78,7 @@ public class Main
          }
          else
          {
-            String[] mainArgs = new String[] {arg[1], arg[2], arg[3], arg[4], arg[5]};
+            String[] mainArgs = new String[]{arg[1], arg[2], arg[3], arg[4], arg[5]};
             XmlDataImporter.main(mainArgs);
          }
       }
