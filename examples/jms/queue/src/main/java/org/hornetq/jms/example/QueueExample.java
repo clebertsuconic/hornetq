@@ -62,8 +62,14 @@ public class QueueExample extends HornetQExample
       }
 
 
+      int i = 0;
       for (Thread t : threads)
       {
+         if (i++ % 100 == 0)
+         {
+            //Thread.sleep(1000);
+            System.out.println("Sleep...");
+         }
          t.start();
       }
 

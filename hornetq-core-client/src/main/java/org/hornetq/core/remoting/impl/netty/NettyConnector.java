@@ -419,6 +419,8 @@ public class NettyConnector extends AbstractConnector
 
       bootstrap.setOption("tcpNoDelay", tcpNoDelay);
 
+
+      System.out.println("Timeout :: " + connectTimeoutMillis);
       if (connectTimeoutMillis != -1)
       {
          bootstrap.setOption("connectTimeoutMillis", connectTimeoutMillis);
