@@ -9,6 +9,8 @@
       <entries>
          <entry name="ConnectionFactory"/>
       </entries>
+      <reconnect-attempts>-1</reconnect-attempts>
+      <
    </connection-factory>
 
    <!--the queue used by the example-->

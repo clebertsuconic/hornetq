@@ -170,10 +170,7 @@ class CoreProtocolManager implements ProtocolManager
 
       public void handlePacket(final Packet packet)
       {
-         if (logger.isTraceEnabled())
-         {
-            logger.trace("PING-CHECK handling packet " + packet);
-         }
+         logger.info("PING-CHECK handling packet " + packet);
          if (packet.getType() == PacketImpl.PING)
          {
             Ping ping = (Ping) packet;
@@ -182,10 +179,7 @@ class CoreProtocolManager implements ProtocolManager
             {
                // Allow clients to specify connection ttl
                entry.ttl = ping.getConnectionTTL();
-               if (logger.isTraceEnabled())
-               {
-                  logger.trace("PING-CHECK Connection " + entry.connection.getID() + " setting ttl=" + entry.ttl);
-               }
+               logger.info("PING-CHECK Connection " + entry.connection.getID() + " setting ttl=" + entry.ttl);
             }
 
             // Just send a ping back

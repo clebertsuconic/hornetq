@@ -421,10 +421,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
 
    public RemotingConnection removeConnection(final Object remotingConnectionID)
    {
-      if (logger.isTraceEnabled())
-      {
-         logger.trace("PING-CHECK Removing connection " + remotingConnectionID, new Exception("trace"));
-      }
+      logger.info("PING-CHECK Removing connection " + remotingConnectionID, new Exception("trace"));
       ConnectionEntry entry = connections.remove(remotingConnectionID);
 
       if (entry != null)
@@ -515,6 +512,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
          // so we need to keep them for ttl, in case re-attachment occurs
          if (empty)
          {
+            logger.info("PING-CHECK removing connectionID as being empty.." + connectionID);
             connections.remove(connectionID);
 
             conn.connection.destroy();
@@ -667,30 +665,16 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
                      {
                         if (now >= entry.lastCheck + entry.ttl)
                         {
-                           if (logger.isTraceEnabled())
-                           {
-                              logger.trace("PING-CHECK Connection " + entry.connection.getID() + " Failed ttl check with ttl=" + entry.ttl + " lastCheck=" + entry.lastCheck);
-                           }
+                           logger.info("PING-CHECK Connection " + entry.connection.getID() + " Failed ttl check with ttl=" + entry.ttl + " lastCheck=" + entry.lastCheck);
 
                            idsToRemove.add(conn.getID());
 
                            flush = false;
                         }
-                        else
-                        {
-                           if (logger.isTraceEnabled())
-                           {
-                              logger.trace("PING-CHECK Connection " + entry.connection.getID() + " entry did not receive data, which is fine as did not reach TTL yet");
-                           }
-                        }
                      }
                      else
                      {
                         entry.lastCheck = now;
-                        if (logger.isTraceEnabled())
-                        {
-                           logger.trace("PING-CHECK Connection " + entry.connection.getID() + " setting lastCheck=" + now);
-                        }
                      }
                   }
 
@@ -716,10 +700,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
 
                for (Object id : idsToRemove)
                {
-                  if (logger.isTraceEnabled())
-                  {
-                     logger.trace("PING-CHECK Failing connection " + id);
-                  }
+                  logger.info("PING-CHECK Failing connection " + id);
                   RemotingConnection conn = getConnection(id);
                   if (conn != null)
                   {
