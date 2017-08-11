@@ -64,6 +64,7 @@ import org.hornetq.spi.core.remoting.ConnectionLifeCycleListener;
 import org.hornetq.utils.ClassloadingUtil;
 import org.hornetq.utils.ConfigurationHelper;
 import org.hornetq.utils.HornetQThreadFactory;
+import org.jboss.logging.Logger;
 
 /**
  * @author <a href="mailto:jmesnil@redhat.com">Jeff Mesnil</a>
@@ -72,6 +73,8 @@ import org.hornetq.utils.HornetQThreadFactory;
  */
 public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycleListener
 {
+   private static final Logger logger = Logger.getLogger(RemotingServiceImpl.class);
+
    // Constants -----------------------------------------------------
 
    private static final boolean isTrace = HornetQServerLogger.LOGGER.isTraceEnabled();
@@ -131,7 +134,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
       {
          try
          {
-            incomingInterceptors.add((Interceptor)safeInitNewInstance(interceptorClass));
+            incomingInterceptors.add((Interceptor) safeInitNewInstance(interceptorClass));
          }
          catch (Exception e)
          {
@@ -143,7 +146,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
       {
          try
          {
-            outgoingInterceptors.add((Interceptor)safeInitNewInstance(interceptorClass));
+            outgoingInterceptors.add((Interceptor) safeInitNewInstance(interceptorClass));
          }
          catch (Exception e)
          {
@@ -202,7 +205,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
          {
             Class<?> clazz = loader.loadClass(info.getFactoryClassName());
 
-            AcceptorFactory factory = (AcceptorFactory)clazz.newInstance();
+            AcceptorFactory factory = (AcceptorFactory) clazz.newInstance();
 
             // Check valid properties
 
@@ -418,6 +421,10 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
 
    public RemotingConnection removeConnection(final Object remotingConnectionID)
    {
+      if (logger.isTraceEnabled())
+      {
+         logger.trace("PING-CHECK Removing connection " + remotingConnectionID, new Exception("trace"));
+      }
       ConnectionEntry entry = connections.remove(remotingConnectionID);
 
       if (entry != null)
@@ -465,7 +472,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
          throw HornetQMessageBundle.BUNDLE.unknownProtocol(protocol);
       }
 
-      ConnectionEntry entry = pmgr.createConnectionEntry((Acceptor)component, connection);
+      ConnectionEntry entry = pmgr.createConnectionEntry((Acceptor) component, connection);
 
       if (isTrace)
       {
@@ -557,7 +564,7 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
 
    private ClusterConnection lookupClusterConnection(TransportConfiguration acceptorConfig)
    {
-      String clusterConnectionName = (String)acceptorConfig.getParams().get(org.hornetq.core.remoting.impl.netty.TransportConstants.CLUSTER_CONNECTION);
+      String clusterConnectionName = (String) acceptorConfig.getParams().get(org.hornetq.core.remoting.impl.netty.TransportConstants.CLUSTER_CONNECTION);
 
       ClusterConnection clusterConnection = null;
       if (clusterConnectionName != null)
@@ -660,14 +667,30 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
                      {
                         if (now >= entry.lastCheck + entry.ttl)
                         {
+                           if (logger.isTraceEnabled())
+                           {
+                              logger.trace("PING-CHECK Connection " + entry.connection.getID() + " Failed ttl check with ttl=" + entry.ttl + " lastCheck=" + entry.lastCheck);
+                           }
+
                            idsToRemove.add(conn.getID());
 
                            flush = false;
+                        }
+                        else
+                        {
+                           if (logger.isTraceEnabled())
+                           {
+                              logger.trace("PING-CHECK Connection " + entry.connection.getID() + " entry did not receive data, which is fine as did not reach TTL yet");
+                           }
                         }
                      }
                      else
                      {
                         entry.lastCheck = now;
+                        if (logger.isTraceEnabled())
+                        {
+                           logger.trace("PING-CHECK Connection " + entry.connection.getID() + " setting lastCheck=" + now);
+                        }
                      }
                   }
 
@@ -693,6 +716,10 @@ public class RemotingServiceImpl implements RemotingService, ConnectionLifeCycle
 
                for (Object id : idsToRemove)
                {
+                  if (logger.isTraceEnabled())
+                  {
+                     logger.trace("PING-CHECK Failing connection " + id);
+                  }
                   RemotingConnection conn = getConnection(id);
                   if (conn != null)
                   {

@@ -53,6 +53,7 @@ import org.hornetq.spi.core.protocol.ProtocolManager;
 import org.hornetq.spi.core.protocol.RemotingConnection;
 import org.hornetq.spi.core.remoting.Acceptor;
 import org.hornetq.spi.core.remoting.Connection;
+import org.jboss.logging.Logger;
 
 /**
  * A CoreProtocolManager
@@ -61,6 +62,8 @@ import org.hornetq.spi.core.remoting.Connection;
  */
 class CoreProtocolManager implements ProtocolManager
 {
+   private static final Logger logger = Logger.getLogger(CoreProtocolManager.class);
+
    private static final boolean isTrace = HornetQServerLogger.LOGGER.isTraceEnabled();
 
    private final HornetQServer server;
@@ -167,14 +170,22 @@ class CoreProtocolManager implements ProtocolManager
 
       public void handlePacket(final Packet packet)
       {
+         if (logger.isTraceEnabled())
+         {
+            logger.trace("PING-CHECK handling packet " + packet);
+         }
          if (packet.getType() == PacketImpl.PING)
          {
-            Ping ping = (Ping)packet;
+            Ping ping = (Ping) packet;
 
             if (config.getConnectionTTLOverride() == -1)
             {
                // Allow clients to specify connection ttl
                entry.ttl = ping.getConnectionTTL();
+               if (logger.isTraceEnabled())
+               {
+                  logger.trace("PING-CHECK Connection " + entry.connection.getID() + " setting ttl=" + entry.ttl);
+               }
             }
 
             // Just send a ping back
@@ -182,11 +193,11 @@ class CoreProtocolManager implements ProtocolManager
          }
          else if (packet.getType() == PacketImpl.SUBSCRIBE_TOPOLOGY || packet.getType() == PacketImpl.SUBSCRIBE_TOPOLOGY_V2)
          {
-            SubscribeClusterTopologyUpdatesMessage msg = (SubscribeClusterTopologyUpdatesMessage)packet;
+            SubscribeClusterTopologyUpdatesMessage msg = (SubscribeClusterTopologyUpdatesMessage) packet;
 
             if (packet.getType() == PacketImpl.SUBSCRIBE_TOPOLOGY_V2)
             {
-               channel0.getConnection().setClientVersion(((SubscribeClusterTopologyUpdatesMessageV2)msg).getClientVersion());
+               channel0.getConnection().setClientVersion(((SubscribeClusterTopologyUpdatesMessageV2) msg).getClientVersion());
             }
 
             final ClusterTopologyListener listener = new ClusterTopologyListener()
@@ -301,7 +312,7 @@ class CoreProtocolManager implements ProtocolManager
          }
          else if (packet.getType() == PacketImpl.NODE_ANNOUNCE)
          {
-            NodeAnnounceMessage msg = (NodeAnnounceMessage)packet;
+            NodeAnnounceMessage msg = (NodeAnnounceMessage) packet;
 
             Pair<TransportConfiguration, TransportConfiguration> pair;
             if (msg.isBackup())
@@ -336,7 +347,7 @@ class CoreProtocolManager implements ProtocolManager
          }
          else if (packet.getType() == PacketImpl.BACKUP_REGISTRATION)
          {
-            BackupRegistrationMessage msg = (BackupRegistrationMessage)packet;
+            BackupRegistrationMessage msg = (BackupRegistrationMessage) packet;
             ClusterConnection clusterConnection = acceptorUsed.getClusterConnection();
 
             if (!config.isSecurityEnabled() || clusterConnection.verify(msg.getClusterUser(), msg.getClusterPassword()))

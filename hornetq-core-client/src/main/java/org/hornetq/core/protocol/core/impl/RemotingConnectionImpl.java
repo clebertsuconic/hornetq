@@ -43,6 +43,7 @@ import org.hornetq.core.client.HornetQClientLogger;
 import org.hornetq.core.client.HornetQClientMessageBundle;
 import org.hornetq.spi.core.remoting.Connection;
 import org.hornetq.utils.SimpleIDGenerator;
+import org.jboss.logging.Logger;
 
 /**
  * @author <a href="tim.fox@jboss.com">Tim Fox</a>
@@ -50,6 +51,7 @@ import org.hornetq.utils.SimpleIDGenerator;
  */
 public class RemotingConnectionImpl implements CoreRemotingConnection
 {
+   private static final Logger logger = Logger.getLogger(RemotingConnectionImpl.class);
    // Constants
    // ------------------------------------------------------------------------------------
 
@@ -575,6 +577,11 @@ public class RemotingConnectionImpl implements CoreRemotingConnection
          }
 
          dataReceived = true;
+
+         if (logger.isTraceEnabled())
+         {
+            logger.trace("PING-CHECK Data Received " + connectionID);
+         }
       }
       catch (Exception e)
       {
