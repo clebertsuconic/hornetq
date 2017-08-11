@@ -578,7 +578,7 @@ public class RemotingConnectionImpl implements CoreRemotingConnection
 
          dataReceived = true;
 
-         logger.info("PING-CHECK Data Received " + connectionID);
+         logger.info("PING-CHECK Data Received " + connectionID + " packet = " + packet);
       }
       catch (Exception e)
       {
