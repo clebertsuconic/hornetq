@@ -38,6 +38,56 @@ public class QueueExample extends HornetQExample
    @Override
    public boolean runExample() throws Exception
    {
+
+
+      final int NUMBER = 1000;
+      Thread[] threads = new Thread[NUMBER];
+
+      for (int i = 0; i < NUMBER; i++)
+      {
+         threads[i] = new Thread("Thread " + i)
+         {
+            public void run()
+            {
+               try
+               {
+                  internalRun();
+               }
+               catch (Exception e)
+               {
+                  e.printStackTrace();
+               }
+            }
+         };
+      }
+
+
+      for (Thread t : threads)
+      {
+         t.start();
+      }
+
+
+      while (true)
+      {
+         try
+         {
+            Thread.sleep(1000);
+         }
+         catch (Exception e)
+         {
+            e.printStackTrace();
+            break;
+         }
+      }
+
+      return true;
+
+   }
+
+
+   public boolean internalRun() throws Exception
+   {
       Connection connection = null;
       InitialContext initialContext = null;
       try
@@ -46,10 +96,10 @@ public class QueueExample extends HornetQExample
          initialContext = getContext(0);
 
          // Step 2. Perfom a lookup on the queue
-         Queue queue = (Queue)initialContext.lookup("/queue/exampleQueue");
+         Queue queue = (Queue) initialContext.lookup("/queue/exampleQueue");
 
          // Step 3. Perform a lookup on the Connection Factory
-         ConnectionFactory cf = (ConnectionFactory)initialContext.lookup("/ConnectionFactory");
+         ConnectionFactory cf = (ConnectionFactory) initialContext.lookup("/ConnectionFactory");
 
          // Step 4.Create a JMS Connection
          connection = cf.createConnection();
@@ -60,24 +110,14 @@ public class QueueExample extends HornetQExample
          // Step 6. Create a JMS Message Producer
          MessageProducer producer = session.createProducer(queue);
 
-         // Step 7. Create a Text Message
-         TextMessage message = session.createTextMessage("This is a text message");
+         MessageConsumer consumer = session.createConsumer(queue);
 
-         System.out.println("Sent message: " + message.getText());
-
-         // Step 8. Send the Message
-         producer.send(message);
-
-         // Step 9. Create a JMS Message Consumer
-         MessageConsumer messageConsumer = session.createConsumer(queue);
-
-         // Step 10. Start the Connection
          connection.start();
 
-         // Step 11. Receive the message
-         TextMessage messageReceived = (TextMessage)messageConsumer.receive(5000);
 
-         System.out.println("Received message: " + messageReceived.getText());
+         System.out.println("Receiving from Thread " + Thread.currentThread().getName());
+         consumer.receive();
+
 
          return true;
       }
