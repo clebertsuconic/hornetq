@@ -2089,6 +2089,10 @@ final class ClientSessionImpl implements ClientSessionInternal, FailureListener,
                                     final boolean durable,
                                     final boolean temp) throws HornetQException
    {
+      if (temp)
+      {
+         logger.info("MDB-CHECK creating temporary queue, address " + address + " queue " + queueName + " filter = " + filterString + " durable = " + durable + " temp=" + temp, new Exception("Trace"));
+      }
       checkClosed();
 
       if (durable && temp)
