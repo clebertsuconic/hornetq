@@ -404,7 +404,7 @@ public interface HornetQClientLogger extends BasicLogger
             format = Message.Format.MESSAGE_FORMAT)
    void outOfCreditOnFlowControl(String address);
 
-   @LogMessage(level = Logger.Level.TRACE)
+   @LogMessage(level = Logger.Level.WARN)
    @Message(id = 214025,
       value = "Failure captured on connectionID={0}, performing failover or reconnection now",
       format = Message.Format.MESSAGE_FORMAT)
