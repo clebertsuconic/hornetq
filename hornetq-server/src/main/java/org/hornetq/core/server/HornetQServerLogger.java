@@ -437,7 +437,7 @@ public interface HornetQServerLogger extends BasicLogger
    @Message(id = 222037, value = "IO Error, impossible to start paging", format = Message.Format.MESSAGE_FORMAT)
    void pageStoreStartIOError(@Cause Exception e);
 
-   @LogMessage(level = Logger.Level.WARN)
+   @LogMessage(level = Logger.Level.INFO)
    @Message(id = 222038, value = "Starting paging on {0}, size = {1}, maxSize={2}", format = Message.Format.MESSAGE_FORMAT)
    void pageStoreStart(SimpleString storeName, long addressSize, long maxSize);
 

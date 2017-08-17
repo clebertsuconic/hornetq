@@ -796,10 +796,7 @@ public class PagingStoreImpl implements PagingStore
             {
                if (startPaging())
                {
-                  if (PagingStoreImpl.isTrace)
-                  {
-                     HornetQServerLogger.LOGGER.pageStoreStart(storeName, addressSize, maxSize);
-                  }
+                  HornetQServerLogger.LOGGER.pageStoreStart(storeName, addressSize, maxSize);
                }
             }
          }
