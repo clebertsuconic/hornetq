@@ -33,6 +33,7 @@ import org.hornetq.core.server.impl.QueueImpl;
 import org.hornetq.core.settings.impl.AddressFullMessagePolicy;
 import org.hornetq.core.settings.impl.AddressSettings;
 import org.hornetq.tests.integration.IntegrationTestLogger;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -206,6 +207,76 @@ public class MessageRedistributionTest extends ClusterTestBase
       String debug = ((QueueImpl)bindable).debug();
       assertFalse(debug.contains(Redistributor.class.getName()));
       MessageRedistributionTest.log.info("Test done");
+   }
+
+
+   @Test
+   public void testReattachMessages() throws Exception
+   {
+      setupCluster(false);
+
+      MessageRedistributionTest.log.info("Doing test");
+
+      startServers(0);
+
+      setupSessionFactory(0, isNetty());
+      createQueue(0, "queues.testaddress", "queue0", null, true);
+      send(0, "queues.testaddress", 100, true, null);
+      servers[0].locateQueue(SimpleString.toSimpleString("queue0")).getPageSubscription().getPagingStore().startPaging();
+      send(0, "queues.testaddress", 1900, true, null);
+
+      Thread.sleep(1000);
+
+      stopServers(0);
+
+      startServers(1, 2);
+
+      setupSessionFactory(1, isNetty());
+      setupSessionFactory(2, isNetty());
+
+      createQueue(1, "queues.testaddress", "queue0", null, true);
+      createQueue(2, "queues.testaddress", "queue0", null, true);
+
+      addConsumer(0, 1, "queue0", null);
+
+      waitForBindings(1, "queues.testaddress", 1, 1, true);
+      waitForBindings(2, "queues.testaddress", 1, 0, true);
+
+      waitForBindings(1, "queues.testaddress", 1, 0, false);
+      waitForBindings(2, "queues.testaddress", 1, 1, false);
+
+
+      Assert.assertNull(consumers[0].getConsumer().receiveImmediate());
+
+      startServers(0);
+
+
+      waitForBindings(0, "queues.testaddress", 1, 0, true);
+      waitForBindings(1, "queues.testaddress", 1, 1, true);
+      waitForBindings(2, "queues.testaddress", 1, 0, true);
+
+      waitForBindings(0, "queues.testaddress", 2, 1, false);
+      waitForBindings(1, "queues.testaddress", 2, 0, false);
+      waitForBindings(2, "queues.testaddress", 2, 1, false);
+
+
+      for (int i = 0; i < 2000; i++) {
+         ClientMessage message = consumers[0].getConsumer().receive(5000);
+         System.out.println("Received " + i);
+         Assert.assertNotNull("did not receive message " + i, message);
+         message.acknowledge();
+      }
+
+      consumers[0].getSession().commit();
+      Assert.assertNull(consumers[0].getConsumer().receiveImmediate());
+
+      /* removeConsumer(0);
+      addConsumer(0, 0, "queue0", null);
+
+      Bindable bindable = servers[0].getPostOffice().getBinding(new SimpleString("queue0")).getBindable();
+      String debug = ((QueueImpl)bindable).debug();
+      assertFalse(debug.contains(Redistributor.class.getName()));
+      MessageRedistributionTest.log.info("Test done"); */
    }
 
    @Test
@@ -1093,6 +1164,13 @@ public class MessageRedistributionTest extends ClusterTestBase
       stopServers(0, 1, 2);
 
       clearServer(0, 1, 2);
+   }
+
+
+   @Override
+   protected boolean isFileStorage()
+   {
+      return true;
    }
 
 }
