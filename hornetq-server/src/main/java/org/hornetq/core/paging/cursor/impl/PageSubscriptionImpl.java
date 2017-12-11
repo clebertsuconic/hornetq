@@ -247,6 +247,8 @@ final class PageSubscriptionImpl implements PageSubscription
                catch (Exception e)
                {
                   HornetQServerLogger.LOGGER.problemCleaningCursorPages(e);
+                  logger.warn(e.getMessage(), e);
+                  e.printStackTrace();
                }
                finally
                {
