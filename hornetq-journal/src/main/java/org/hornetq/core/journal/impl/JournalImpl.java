@@ -13,6 +13,7 @@
 
 package org.hornetq.core.journal.impl;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -2172,6 +2173,21 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
             }
             catch (Throwable e)
             {
+               fileFactory.onIOError(new IOException(e.getMessage(), e), e.getMessage(), null);
+
+               new Thread() {
+                  public void run()
+                  {
+                     try
+                     {
+                        JournalImpl.this.stop();
+                     }
+                     catch (Exception ignored)
+                     {
+                     }
+                  }
+               }.start();
+
                HornetQJournalLogger.LOGGER.errorCompacting(e);
             }
             finally
@@ -2402,7 +2418,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
    {
       if (state == JournalState.STOPPED)
       {
-         throw new IllegalStateException("Journal is already stopped");
+         return;
       }
 
 

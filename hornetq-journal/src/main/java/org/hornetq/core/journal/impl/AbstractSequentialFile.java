@@ -163,6 +163,7 @@ public abstract class AbstractSequentialFile implements SequentialFile
       }
       catch (ClosedChannelException e)
       {
+         factory.onIOError(new HornetQIOErrorException(e.getMessage(), e), e.getMessage(), this);
          throw e;
       }
       catch (IOException e)
@@ -177,6 +178,8 @@ public abstract class AbstractSequentialFile implements SequentialFile
       {
          if (!file.renameTo(newFile))
          {
+            HornetQException exception = HornetQJournalBundle.BUNDLE.ioRenameFileError(file.getName(), newFileName);
+            factory.onIOError(exception, exception.getMessage(), this);
             throw HornetQJournalBundle.BUNDLE.ioRenameFileError(file.getName(), newFileName);
          }
          file = newFile;
