@@ -63,8 +63,19 @@ public final class SpawnedVMSupport
       return SpawnedVMSupport.spawnVM(className, "-Xms512m", "-Xmx512m", vmargs, logOutput, true, args);
    }
 
-
    public static Process spawnVM(final String className,
+                                 final String memoryArg1,
+                                 final String memoryArg2,
+                                 final String[] vmargs,
+                                 final boolean logOutput,
+                                 final boolean logErrorOutput,
+                                 final String... args) throws Exception
+   {
+      return spawnVM(className, className, memoryArg1, memoryArg2, vmargs, logOutput, logErrorOutput, args);
+   }
+
+   public static Process spawnVM(final String logName,
+                                 final String className,
                                  final String memoryArg1,
                                  final String memoryArg2,
                                  final String[] vmargs,
@@ -112,13 +123,13 @@ public final class SpawnedVMSupport
 
       if (logOutput)
       {
-         SpawnedVMSupport.startLogger(className, process);
+         SpawnedVMSupport.startLogger(logName + "(out)", process);
 
       }
 
       // Adding a reader to System.err, so the VM won't hang on a System.err.println as identified on this forum thread:
       // http://www.jboss.org/index.html?module=bb&op=viewtopic&t=151815
-      ProcessLogger errorLogger = new ProcessLogger(logErrorOutput, process.getErrorStream(), className);
+      ProcessLogger errorLogger = new ProcessLogger(logErrorOutput, process.getErrorStream(), logName + "(err)");
       errorLogger.start();
 
       return process;

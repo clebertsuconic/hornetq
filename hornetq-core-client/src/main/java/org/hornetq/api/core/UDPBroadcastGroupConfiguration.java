@@ -132,12 +132,14 @@ public final class UDPBroadcastGroupConfiguration implements BroadcastEndpointFa
 
       public void broadcast(byte[] data) throws Exception
       {
+         System.out.println("Broadcasting... ");
          DatagramPacket packet = new DatagramPacket(data, data.length, groupAddress, groupPort);
          broadcastingSocket.send(packet);
       }
 
       public byte[] receiveBroadcast() throws Exception
       {
+         System.out.println("Receiving");
          final byte[] data = new byte[65535];
          final DatagramPacket packet = new DatagramPacket(data, data.length);
 

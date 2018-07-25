@@ -289,6 +289,7 @@ public final class DiscoveryGroup implements HornetQComponent
                try
                {
 
+                  System.out.println("Receiving broadcast...");
                   data = endpoint.receiveBroadcast();
                   if (data == null)
                   {

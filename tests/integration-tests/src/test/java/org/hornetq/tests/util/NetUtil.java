@@ -121,14 +121,15 @@ public class NetUtil
          }
          catch (Exception e)
          {
-            e.printStackTrace();
+           // e.printStackTrace();
          }
       }
    }
 
    public static void netUp(String ip) throws Exception
    {
-      String deviceID = "lo:" + nextDevice.incrementAndGet();
+      String deviceID = "lo:" + nextDevice.getAndIncrement();
+      System.out.println("adding " + ip + " on " + deviceID);
       if (osUsed == OS.MAC)
       {
          if (runCommand("sudo", "-n", "ifconfig", "lo0", "alias", ip) != 0)
@@ -192,11 +193,6 @@ public class NetUtil
 
    public static int runCommand(long timeout, TimeUnit timeoutUnit, String... command) throws Exception
    {
-
-      for (String c: command)
-      {
-         System.out.println(".." + c + "..");
-      }
       // it did not work with a simple isReachable, it could be because there's no root access, so we will try ping executable
       ProcessBuilder processBuilder = new ProcessBuilder(command);
       final Process process = processBuilder.start();
