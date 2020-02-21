@@ -290,6 +290,7 @@ public final class DiscoveryGroup implements HornetQComponent
                {
 
                   data = endpoint.receiveBroadcast();
+                  System.out.println("Receiving data " + data);
                   if (data == null)
                   {
                      if (started)
@@ -297,7 +298,9 @@ public final class DiscoveryGroup implements HornetQComponent
                         // This is totally unexpected, so I'm not even bothering on creating
                         // a log entry for that
                         HornetQClientLogger.LOGGER.warn("Unexpected null data received from DiscoveryEndpoint");
+                        continue;
                      }
+
                      break;
                   }
                }

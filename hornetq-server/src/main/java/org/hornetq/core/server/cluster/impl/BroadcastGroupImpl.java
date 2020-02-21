@@ -33,6 +33,7 @@ import org.hornetq.core.server.management.Notification;
 import org.hornetq.core.server.management.NotificationService;
 import org.hornetq.utils.TypedProperties;
 import org.hornetq.utils.UUIDGenerator;
+import org.jboss.logging.Logger;
 
 /**
  * <p>This class will use the {@link BroadcastEndpoint} to send periodical updates on the list for connections
@@ -49,6 +50,8 @@ import org.hornetq.utils.UUIDGenerator;
  */
 public class BroadcastGroupImpl implements BroadcastGroup, Runnable
 {
+   private static final Logger logger = Logger.getLogger(BroadcastGroupImpl.class);
+
    private final NodeManager nodeManager;
 
    private final String name;
@@ -213,6 +216,11 @@ public class BroadcastGroupImpl implements BroadcastGroup, Runnable
 
       byte[] data = buff.toByteBuffer().array();
 
+      if (logger.isDebugEnabled())
+      {
+         logger.debug("Broadcasting " + connectors.size() + " connectors, with a total of " + data.length + " bytes");
+      }
+
       endpoint.broadcast(data);
    }
 
@@ -239,6 +247,22 @@ public class BroadcastGroupImpl implements BroadcastGroup, Runnable
          else
          {
             HornetQServerLogger.LOGGER.debug("Failed to broadcast connector configs...again", e);
+         }
+
+         logger.debug("rebooting broadcast endpoint");
+
+         try
+         {
+            endpoint.close(true);
+         } catch (Throwable t) {
+            logger.warn(t.getMessage(), t);
+         }
+
+         try
+         {
+            endpoint.openBroadcaster();
+         } catch (Throwable t) {
+            logger.warn(t.getMessage(), t);
          }
       }
    }
