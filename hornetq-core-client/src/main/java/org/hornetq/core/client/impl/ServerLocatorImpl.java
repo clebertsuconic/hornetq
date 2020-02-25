@@ -16,7 +16,9 @@ package org.hornetq.core.client.impl;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamException;
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
 import java.lang.reflect.Array;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -71,6 +73,10 @@ import org.jboss.logging.Logger;
  */
 public final class ServerLocatorImpl implements ServerLocatorInternal, DiscoveryListener, Serializable
 {
+
+   private transient StringWriter debugStr = new StringWriter();
+   private transient PrintWriter debugWriter = new PrintWriter(debugStr);
+
    private static final Logger logger = Logger.getLogger(ServerLocatorImpl.class);
 
    /*needed for backward compatibility*/
@@ -187,6 +193,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
    private String stateGuard = new String();
    private transient STATE state;
    private transient CountDownLatch latch;
+   private transient Object waitDiscoveryLock;
 
    private final List<Interceptor> incomingInterceptors = new CopyOnWriteArrayList<Interceptor>();
 
@@ -382,6 +389,9 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          {
             state = STATE.INITIALIZED;
             latch = new CountDownLatch(1);
+            // this is because the locator is serializable
+            // and I can't declare as final.
+            waitDiscoveryLock = new Object();
 
             setThreadPools();
 
@@ -545,6 +555,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
    public void resetToInitialConnectors()
    {
+      debugWriter.println("ResetToInitialConnectors");
       synchronized (topologyArrayGuard)
       {
          receivedTopology = false;
@@ -848,6 +859,9 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
       initialise();
 
+      debugWriter.println("Initializing");
+
+      // just a single thread here please
       if (this.getNumInitialConnectors() == 0 && discoveryGroup != null)
       {
          // Wait for an initial broadcast to give us at least one node in the cluster
@@ -858,7 +872,20 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          {
             throw HornetQClientMessageBundle.BUNDLE.connectionTimedOutInInitialBroadcast();
          }
+
+         debugWriter.println("Received an ok");
       }
+
+      debugWriter.println("initialConnectors:: " + initialConnectors);
+
+      if (initialConnectors != null)
+      {
+         for (Object obj : initialConnectors)
+         {
+            debugWriter.println("initialConnector[] " + obj);
+         }
+      }
+      debugWriter.println();
 
       ClientSessionFactoryInternal factory = null;
 
@@ -885,6 +912,9 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
             // try each factory in the list until we find one which works
 
+
+            debugWriter.println("Connecting towards " + tc);
+
             try
             {
                factory = new ClientSessionFactoryImpl(this,
@@ -905,7 +935,9 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
                try
                {
                   addToConnecting(factory);
-                  factory.connect(initialConnectAttempts, failoverOnInitialConnection);
+
+                  debugWriter.println("Connected on " + tc);
+                  ((ClientSessionFactoryImpl)factory).connect(initialConnectAttempts, failoverOnInitialConnection, debugWriter);
                }
                finally
                {
@@ -914,6 +946,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
             }
             catch (HornetQException e)
             {
+               debugWriter.println("Had an exception");
                factory.close();
                factory = null;
                if (e.getType() == HornetQExceptionType.NOT_CONNECTED)
@@ -970,6 +1003,9 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          }
          while (retry);
 
+
+         long start = System.currentTimeMillis();
+
          // We always wait for the topology, as the server
          // will send a single element if not cluster
          // so clients can know the id of the server they are connected to
@@ -996,6 +1032,13 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          final boolean hasTimedOut = timeout > System.currentTimeMillis();
          if (!hasTimedOut && !receivedTopology)
          {
+            synchronized (System.out)
+            {
+               System.out.println("Timeout is " + callTimeout + " now and then is " + (System.currentTimeMillis() - start));
+               System.out.println("=================================");
+               System.out.println(debugStr.toString());
+               System.out.println();
+            }
             if (factory != null)
                factory.cleanup();
             throw HornetQClientMessageBundle.BUNDLE.connectionTimedOutOnReceiveTopology(discoveryGroup);
@@ -1591,6 +1634,10 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
    public void notifyNodeDown(final long eventTime, final String nodeID)
    {
 
+      debugWriter.println("node down at " + eventTime + " nodeID=" + nodeID);
+
+      System.out.println("Notify node down");
+
       if (!ha)
       {
          // there's no topology here
@@ -1643,6 +1690,8 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          logger.trace("NodeUp " + this + "::nodeID=" + nodeID + ", connectorPair=" + connectorPair, new Exception("trace"));
       }
 
+      debugWriter.println("NodeUp " + this + "::nodeID=" + nodeID + ", connectorPair=" + connectorPair);
+
       TopologyMemberImpl member = new TopologyMemberImpl(nodeID, nodeName, connectorPair.getA(), connectorPair.getB());
 
       topology.updateMember(uniqueEventID, nodeID, member);
@@ -1669,6 +1718,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
       {
          synchronized (this)
          {
+            debugWriter.println("receivedTopology=true");
             receivedTopology = true;
             // Notify if waiting on getting topology
             notifyAll();
@@ -1724,6 +1774,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
    public synchronized void connectorsChanged(List<DiscoveryEntry> newConnectors)
    {
+      debugWriter.println("Connectors changed");
       if (receivedTopology)
       {
          return;
@@ -1748,6 +1799,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
 
       if (clusterConnection && !receivedTopology && this.getNumInitialConnectors() > 0)
       {
+         debugWriter.println("Entering connect mode");
          // The node is alone in the cluster. We create a connection to the new node
          // to trigger the node notification to form the cluster.
 
@@ -1757,6 +1809,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
             {
                try
                {
+                  debugWriter.println("Running reconnect");
                   connect();
                }
                catch (HornetQException e)
@@ -1767,12 +1820,18 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
          };
          if (startExecutor != null)
          {
+            debugWriter.println("connecting with executor");
             startExecutor.execute(connectRunnable);
          }
          else
          {
+            debugWriter.println("connecting directly");
             connectRunnable.run();
          }
+      }
+      else
+      {
+         debugWriter.println("not a cluster connection, so don't worry about the connect part");
       }
    }
 
@@ -1787,6 +1846,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
             // Go back to using the broadcast or static list
             synchronized (topologyArrayGuard)
             {
+               debugWriter.println("ReceivedToplogy=false because factory closed");
                receivedTopology = false;
             }
          }

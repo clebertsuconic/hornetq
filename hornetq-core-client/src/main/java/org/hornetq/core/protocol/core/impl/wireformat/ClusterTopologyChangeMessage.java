@@ -156,6 +156,12 @@ public class ClusterTopologyChangeMessage extends PacketImpl
    }
 
    @Override
+   public String toString()
+   {
+      return "ClusterTopologyChangeMessage{" + "exit=" + exit + ", nodeID='" + nodeID + '\'' + ", pair=" + pair + ", last=" + last + '}';
+   }
+
+   @Override
    public int hashCode()
    {
       final int prime = 31;

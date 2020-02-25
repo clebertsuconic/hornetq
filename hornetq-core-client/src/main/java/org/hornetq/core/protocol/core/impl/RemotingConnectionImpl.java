@@ -87,6 +87,8 @@ public class RemotingConnectionImpl implements CoreRemotingConnection
 
    private int clientVersion;
 
+   private int magicID;
+
    private volatile SimpleIDGenerator idGenerator = new SimpleIDGenerator(CHANNEL_ID.USER.id);
 
    private boolean idGeneratorSynced = false;
@@ -222,6 +224,16 @@ public class RemotingConnectionImpl implements CoreRemotingConnection
    public void setClientVersion(int clientVersion)
    {
       this.clientVersion = clientVersion;
+   }
+
+   public void setMagicID(int magicID)
+   {
+      this.magicID = magicID;
+   }
+
+   public int getMagicID()
+   {
+      return magicID;
    }
 
    public Object getID()

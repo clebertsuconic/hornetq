@@ -24,11 +24,15 @@ public class SubscribeClusterTopologyUpdatesMessageV2 extends SubscribeClusterTo
 
    private int clientVersion;
 
-   public SubscribeClusterTopologyUpdatesMessageV2(final boolean clusterConnection, int clientVersion)
+   private int magicID;
+
+   public SubscribeClusterTopologyUpdatesMessageV2(final boolean clusterConnection, int clientVersion, int magicID)
    {
       super(SUBSCRIBE_TOPOLOGY_V2, clusterConnection);
 
       this.clientVersion = clientVersion;
+
+      this.magicID = magicID;
    }
 
    public SubscribeClusterTopologyUpdatesMessageV2()
@@ -45,6 +49,7 @@ public class SubscribeClusterTopologyUpdatesMessageV2 extends SubscribeClusterTo
    {
       super.encodeRest(buffer);
       buffer.writeInt(clientVersion);
+      buffer.writeInt(magicID);
    }
 
    /**
@@ -60,6 +65,7 @@ public class SubscribeClusterTopologyUpdatesMessageV2 extends SubscribeClusterTo
    {
       super.decodeRest(buffer);
       clientVersion = buffer.readInt();
+      this.magicID = buffer.readInt();
    }
 
    @Override

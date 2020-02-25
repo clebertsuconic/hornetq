@@ -13,6 +13,9 @@
 
 package org.hornetq.core.client.impl;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.lang.ref.WeakReference;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -27,6 +30,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 
 import org.hornetq.api.core.HornetQBuffer;
@@ -85,6 +89,11 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
 {
    // Constants
    // ------------------------------------------------------------------------------------
+
+
+   private static final AtomicInteger generator = new AtomicInteger(0);
+
+   private int magicID = generator.incrementAndGet();
 
    private static final Logger logger = Logger.getLogger(ClientSessionFactoryImpl.class);
 
@@ -286,7 +295,25 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
    public void connect(final int initialConnectAttempts, final boolean failoverOnInitialConnection) throws HornetQException
    {
       // Get the connection
-      getConnectionWithRetry(initialConnectAttempts);
+      getConnectionWithRetry(initialConnectAttempts, null);
+
+      if (connection == null)
+      {
+         StringBuilder msg =
+            new StringBuilder("Unable to connect to server using configuration ").append(currentConnectorConfig);
+         if (backupConfig != null)
+         {
+            msg.append(" and backup configuration ").append(backupConfig);
+         }
+         throw new HornetQNotConnectedException(msg.toString());
+      }
+
+   }
+
+   public void connect(final int initialConnectAttempts, final boolean failoverOnInitialConnection, PrintWriter debugWriter) throws HornetQException
+   {
+      // Get the connection
+      getConnectionWithRetry(initialConnectAttempts, debugWriter);
 
       if (connection == null)
       {
@@ -1180,7 +1207,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          session.preHandleFailover(connection);
       }
 
-      getConnectionWithRetry(reconnectAttempts);
+      getConnectionWithRetry(reconnectAttempts, null);
 
       if (connection == null)
       {
@@ -1216,8 +1243,32 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
       }
    }
 
-   private void getConnectionWithRetry(final int reconnectAttempts)
+   private void getConnectionWithRetry(final int reconnectAttempts, PrintWriter writer)
    {
+
+      if (writer == null)
+      {
+         writer = new PrintWriter(new Writer()
+         {
+            @Override
+            public void write(char[] cbuf, int off, int len) throws IOException
+            {
+
+            }
+
+            @Override
+            public void flush() throws IOException
+            {
+
+            }
+
+            @Override
+            public void close() throws IOException
+            {
+
+            }
+         });
+      }
       if (exitLoop)
          return;
       if (HornetQClientLogger.LOGGER.isTraceEnabled())
@@ -1229,6 +1280,12 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                                              retryIntervalMultiplier + ", debug= " + debugInfo, new Exception("trace"));
       }
 
+      writer.println("getConnectionWithRetry::" + reconnectAttempts +
+                      " with retryInterval = " +
+                      retryInterval +
+                      " multiplier = " +
+                      retryIntervalMultiplier + ", debug= " + debugInfo);
+
       long interval = retryInterval;
 
       int count = 0;
@@ -1239,10 +1296,14 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          {
             logger.debug("Trying reconnection attempt " + count + "/" + reconnectAttempts + ", debug= " + debugInfo);
          }
+         writer.println("Trying reconnection attempt " + count + "/" + reconnectAttempts + ", debug= " + debugInfo);
 
          try
          {
-            getConnection();
+            getConnection(writer);
+
+
+            writer.println("Got connection = " + connection);
 
 
             if (connection == null)
@@ -1263,6 +1324,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                      {
                         logger.debug("Trying to connect towards " + this + ", debug= " + debugInfo);
                      }
+                     writer.println("Trying to connect towards " + this + ", debug= " + debugInfo);
 
                      return;
                   }
@@ -1363,11 +1425,35 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
       }
    }
 
+   public CoreRemotingConnection getConnection()
+   {
+      return getConnection(new PrintWriter(new Writer()
+      {
+         @Override
+         public void write(char[] cbuf, int off, int len) throws IOException
+         {
+
+         }
+
+         @Override
+         public void flush() throws IOException
+         {
+
+         }
+
+         @Override
+         public void close() throws IOException
+         {
+
+         }
+      }));
+   }
+
    //The order of connector configs to try to get a connection:
    //currentConnectorConfig, backupConfig and last connectorConfig.
    //On each successful connect, the current and last will be
    //updated properly.
-   public CoreRemotingConnection getConnection()
+   public CoreRemotingConnection getConnection(PrintWriter writer)
    {
       if (closed)
          throw new IllegalStateException("ClientSessionFactory is closed!");
@@ -1409,6 +1495,8 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                   }
 
                   tc = connector.createConnection();
+
+                  writer.println("Created connection as " + tc);
 
                   if (tc == null)
                   {
@@ -1580,7 +1668,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
 
                Channel channel0 = connection.getChannel(0, -1);
 
-               channel0.setHandler(new Channel0Handler(connection));
+               channel0.setHandler(new Channel0Handler(connection, writer));
 
                if (clientFailureCheckPeriod != -1)
                {
@@ -1603,8 +1691,10 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                   }
                }
 
+
                if (serverLocator.getTopology() != null)
                {
+                  writer.println("Sending request of topology on magic " + magicID);
                   if (logger.isTraceEnabled())
                   {
                      logger.trace(this + "::Subscribing Topology, debug= " + debugInfo);
@@ -1612,7 +1702,11 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
 
                   channel0.send(new SubscribeClusterTopologyUpdatesMessageV2(serverLocator.isClusterConnection(),
                                                                              VersionLoader.getVersion()
-                                                                                .getIncrementingVersion()));
+                                                                                .getIncrementingVersion(), magicID));
+               }
+               else
+               {
+                  writer.println("Topology is null, so not subscribing to topology updates");
                }
             }
             catch (HornetQInterruptedException ex)
@@ -1768,9 +1862,12 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
    {
       private final CoreRemotingConnection conn;
 
-      private Channel0Handler(final CoreRemotingConnection conn)
+      private final PrintWriter writer;
+
+      private Channel0Handler(final CoreRemotingConnection conn, PrintWriter writer)
       {
          this.conn = conn;
+         this.writer = writer;
       }
 
       public void handlePacket(final Packet packet)
@@ -1782,6 +1879,11 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
             final DisconnectMessage msg = (DisconnectMessage)packet;
 
             SimpleString nodeID = msg.getNodeID();
+
+            if (writer != null)
+            {
+               writer.println("Disconnect with nodeID = " + nodeID);
+            }
 
             if (HornetQClientLogger.LOGGER.isTraceEnabled())
             {
@@ -1802,6 +1904,10 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          }
          else if (type == PacketImpl.CLUSTER_TOPOLOGY)
          {
+            if (writer != null)
+            {
+               writer.println("ClusterTopologyChange = " + packet);
+            }
             ClusterTopologyChangeMessage topMessage = (ClusterTopologyChangeMessage)packet;
             notifyTopologyChange(topMessage);
          }
@@ -1817,6 +1923,11 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
        */
       private void notifyTopologyChange(final ClusterTopologyChangeMessage topMessage)
       {
+         if (writer != null)
+         {
+            writer.println("notifyTopologyChange " + topMessage);
+         }
+
          threadPool.execute(new Runnable()
          {
             public void run()

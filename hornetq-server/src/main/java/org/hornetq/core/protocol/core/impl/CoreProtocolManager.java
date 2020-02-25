@@ -53,6 +53,7 @@ import org.hornetq.spi.core.protocol.ProtocolManager;
 import org.hornetq.spi.core.protocol.RemotingConnection;
 import org.hornetq.spi.core.remoting.Acceptor;
 import org.hornetq.spi.core.remoting.Connection;
+import org.jboss.logging.Logger;
 
 /**
  * A CoreProtocolManager
@@ -61,6 +62,8 @@ import org.hornetq.spi.core.remoting.Connection;
  */
 class CoreProtocolManager implements ProtocolManager
 {
+
+   private static final Logger logger = Logger.getLogger(CoreProtocolManager.class);
    private static final boolean isTrace = HornetQServerLogger.LOGGER.isTraceEnabled();
 
    private final HornetQServer server;
@@ -194,6 +197,7 @@ class CoreProtocolManager implements ProtocolManager
                @Override
                public void nodeUP(final TopologyMember topologyMember, final boolean last)
                {
+                  logger.info("nodeUP magicID=" + channel0.getConnection().getMagicID() + " update " + topologyMember + " ");
                   try
                   {
                      final Pair<TransportConfiguration, TransportConfiguration> connectorPair =
@@ -207,6 +211,8 @@ class CoreProtocolManager implements ProtocolManager
                      {
                         public void run()
                         {
+                           logger.info("actual nodeUP magicID=" + channel0.getConnection().getMagicID() + " update " + topologyMember + " ");
+
                            if (channel0.supports(PacketImpl.CLUSTER_TOPOLOGY_V2))
                            {
                               channel0.send(new ClusterTopologyChangeMessage_V2(topologyMember.getUniqueEventID(),
@@ -222,6 +228,7 @@ class CoreProtocolManager implements ProtocolManager
                   }
                   catch (RejectedExecutionException ignored)
                   {
+                     ignored.printStackTrace();
                      // this could happen during a shutdown and we don't care, if we lost a nodeDown during a shutdown
                      // what can we do anyways?
                   }
@@ -230,6 +237,7 @@ class CoreProtocolManager implements ProtocolManager
 
                public void nodeDown(final long uniqueEventID, final String nodeID)
                {
+                  logger.info("nodeDown magicID=" + channel0.getConnection().getMagicID() + " nodeID=" + nodeID);
                   // Using an executor as most of the notifications on the Topology
                   // may come from a channel itself
                   // What could cause deadlocks
@@ -239,6 +247,7 @@ class CoreProtocolManager implements ProtocolManager
                      {
                         public void run()
                         {
+                           logger.info("actual nodeDown magicID=" + channel0.getConnection().getMagicID() + " nodeID=" + nodeID);
                            if (channel0.supports(PacketImpl.CLUSTER_TOPOLOGY_V2))
                            {
                               channel0.send(new ClusterTopologyChangeMessage_V2(uniqueEventID, nodeID));

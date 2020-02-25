@@ -12,6 +12,9 @@
  */
 package org.hornetq.core.remoting.impl.invm;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -125,6 +128,28 @@ public class InVMConnector extends AbstractConnector
    }
 
    public Connection createConnection()
+   {
+      return createConnection(new PrintWriter(new Writer() {
+         @Override
+         public void write(char[] cbuf, int off, int len) throws IOException
+         {
+
+         }
+
+         @Override
+         public void flush() throws IOException
+         {
+
+         }
+
+         @Override
+         public void close() throws IOException
+         {
+
+         }
+      }));
+   }
+   public Connection createConnection(PrintWriter writer)
    {
       if (InVMConnector.failOnCreateConnection)
       {

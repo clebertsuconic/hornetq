@@ -34,6 +34,10 @@ public interface CoreRemotingConnection extends RemotingConnection
     */
    void setClientVersion(int clientVersion);
 
+   void setMagicID(int magicID);
+
+   int getMagicID();
+
    /**
     * Returns the channel with the channel id specified.
     * <p>

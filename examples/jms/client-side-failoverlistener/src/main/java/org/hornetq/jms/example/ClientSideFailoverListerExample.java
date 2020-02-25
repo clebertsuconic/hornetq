@@ -21,10 +21,14 @@ import javax.jms.Session;
 import javax.jms.TextMessage;
 import javax.naming.InitialContext;
 
+import org.hornetq.api.core.DiscoveryGroupConfiguration;
+import org.hornetq.api.core.UDPBroadcastGroupConfiguration;
 import org.hornetq.api.core.client.FailoverEventListener;
 import org.hornetq.api.core.client.FailoverEventType;
+import org.hornetq.api.core.client.HornetQClient;
 import org.hornetq.common.example.HornetQExample;
 import org.hornetq.jms.client.HornetQConnection;
+import org.hornetq.jms.client.HornetQConnectionFactory;
 
 /**
  * This example demonstrates how you can listen on failover event on the client side
@@ -53,11 +57,14 @@ public class ClientSideFailoverListerExample extends HornetQExample
          // Step 1. Get an initial context for looking up JNDI from server 0
          initialContext = getContext(0);
 
+         DiscoveryGroupConfiguration groupConfiguration =
+            new DiscoveryGroupConfiguration(HornetQClient.DEFAULT_DISCOVERY_INITIAL_WAIT_TIMEOUT, HornetQClient.DEFAULT_DISCOVERY_INITIAL_WAIT_TIMEOUT,
+                                            new UDPBroadcastGroupConfiguration("231.7.7.7", 9876, null, -1));
+
+         HornetQConnectionFactory connectionFactory = new HornetQConnectionFactory(true, groupConfiguration);
+
          // Step 2. Look-up the JMS Queue object from JNDI
          Queue queue = (Queue)initialContext.lookup("/queue/exampleQueue");
-
-         // Step 3. Look-up a JMS Connection Factory object from JNDI on server 0
-         ConnectionFactory connectionFactory = (ConnectionFactory)initialContext.lookup("/ConnectionFactory");
 
          // Step 4. We create 1 JMS connections from the same connection factory.
          // Wait a little while to make sure broadcasts from all nodes have reached the client

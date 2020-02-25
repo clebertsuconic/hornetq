@@ -12,6 +12,7 @@
  */
 package org.hornetq.spi.core.remoting;
 
+import java.io.PrintWriter;
 import java.util.Map;
 
 /**
@@ -47,6 +48,9 @@ public interface Connector
     * @return The connection, or null if unable to create a connection (e.g. network is unavailable)
     */
    Connection createConnection();
+
+
+   Connection createConnection(PrintWriter writer);
 
    /**
     * If the configuration is equivalent to this connector, which means

@@ -16,6 +16,9 @@ package org.hornetq.core.remoting.impl.netty;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.net.ConnectException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -615,6 +618,29 @@ public class NettyConnector extends AbstractConnector
 
    public Connection createConnection()
    {
+      return createConnection(new PrintWriter(new Writer() {
+         @Override
+         public void write(char[] cbuf, int off, int len) throws IOException
+         {
+
+         }
+
+         @Override
+         public void flush() throws IOException
+         {
+
+         }
+
+         @Override
+         public void close() throws IOException
+         {
+
+         }
+      }));
+   }
+
+   public Connection createConnection(PrintWriter writer)
+   {
       if (channelFactory == null)
       {
          return null;
@@ -679,6 +705,8 @@ public class NettyConnector extends AbstractConnector
 
       if (future.isSuccess())
       {
+
+         writer.println("Connected");
          final Channel ch = future.getChannel();
          SslHandler sslHandler = ch.getPipeline().get(SslHandler.class);
          if (sslHandler != null)
@@ -694,6 +722,7 @@ public class NettyConnector extends AbstractConnector
                }
                else
                {
+                  writer.println("deu pau on awaitUninterruptbly");
                   ch.close().awaitUninterruptibly();
                   HornetQClientLogger.LOGGER.errorCreatingNettyConnection(handshakeFuture.getCause());
                   return null;
@@ -718,6 +747,8 @@ public class NettyConnector extends AbstractConnector
          Listener connectionListener = new Listener();
          NettyConnection conn = new NettyConnection(configuration, ch, connectionListener, !httpEnabled && batchDelay > 0, false);
          connectionListener.connectionCreated(null, conn, ProtocolType.CORE);
+
+         writer.println("Connection created");
 
          return conn;
       }
